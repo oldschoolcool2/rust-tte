@@ -55,9 +55,12 @@ unchanged.
 Running the Oracle's own functions produced the Phase-1 **ITT** fixtures under
 `fixtures/edge/` and `fixtures/scenarios/` (+ `MANIFEST.json`):
 
-- **Edge battery (5 of the 9 graded cases — the ones already authored in
-  `oracle/30_edge_cases.R`):** `E01_single`, `E02_id4_canonical`,
-  `E03_event_at_baseline`, `E05_never_treats`, `E07_last_period_only`.
+- **Edge battery (all 9 graded cases):** `E01_single`, `E02_id4_canonical`,
+  `E03_event_at_baseline`, `E04_reentry`, `E05_never_treats`,
+  `E06_switch_then_back`, `E07_last_period_only`, `E08_ties`, `E09_max_fanout`.
+  E04/E06/E08/E09 were signed off (epi review + Oracle confirmation) after the
+  initial five; E04 (re-entry), E08 (ties), E09 (496-row fan-out) and E06's ITT
+  view all pass bit-exact. (E06's *PP* view is Phase 2.)
 - **Simulated scenarios (8):** `common`, `rare_event`, `ultra_rare_event`,
   `rare_initiation`, `high_switching`, `heavy_censoring`, `short_followup`,
   `strong_confounding` (the `large_scale` benchmark cohort is excluded, per
@@ -75,19 +78,22 @@ column, so `oracle/00_setup.R` needed no change.
 
 | Check | Result |
 |---|---|
-| ITT edge fixtures E01/E02/E03/E05/E07 — bit-exact (schema + values + order) | ✅ |
+| ITT edge fixtures E01–E09 (all 9) — bit-exact (schema + values + order) | ✅ |
 | ITT scenario fixtures (8 cohorts, up to 114 475 rows) — bit-exact | ✅ |
 | `expand_parquet` write→reread round-trip preserves dtypes | ✅ |
-| Invariants (followup_time ≥ 0; one baseline row per trial) | ✅ |
-| `cargo test --workspace --all-features --all-targets --locked` | ✅ 15 passed (lib); contract skeleton still `#[ignore]`d |
+| Invariants (followup_time ≥ 0; one baseline per trial; assignment sourced from `trial_period`) | ✅ |
+| `cargo test --workspace --all-features --all-targets --locked` | ✅ 37 passed (20 lib + 17 integration), 0 ignored |
 | `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | ✅ clean |
 | `cargo fmt --all --check` | ✅ clean |
 | `cargo check --workspace --all-features --all-targets --locked` | ✅ |
+| `pre-commit run --all-files` | ✅ all hooks pass |
 
-The 13 fixture tests live in-crate (`src/lib.rs` `#[cfg(test)]`) as the engine's
-co-located regression net. The canonical contract test
-(`crates/tte-expand/tests/itt.rs`) is authored as part of this phase (it remained
-`#[ignore]`d through Phase 0 until the engine + fixtures landed).
+The 17-case canonical contract test (`crates/tte-expand/tests/itt.rs`, ITT edge +
+scenarios) is mirrored by 20 in-crate tests (`src/lib.rs` `#[cfg(test)]`) — fixture
+matches plus `expand_parquet` round-trip and the property invariants, including
+`invariant_assigned_treatment_sourced_from_trial_period` (the re-entry-critical
+property: `assigned_treatment` is the input `treatment` at each trial's own
+`trial_period`, never frozen from first eligibility).
 
 ## Decisions / deviations recorded
 
@@ -118,14 +124,23 @@ co-located regression net. The canonical contract test
 
 ## Deferred to Phase 2+ / open questions (for human sign-off)
 
-1. **Per-protocol (Phase 2):** `expand_until_switch` first-deviation censoring.
-   Confirm PP semantics and the (currently absent) censor-flag column; resolve the
-   PP `glm` crash on degenerate inputs before generating PP fixtures.
-2. **Remaining edge cases** `E04` (re-entry), `E06` (switch-then-back), `E08`
-   (ties), `E09` (max fan-out) are still `TODO` comments in
-   `oracle/30_edge_cases.R` awaiting epidemiological sign-off; once authored they
-   slot straight into the ITT test battery (the engine already handles re-entry
-   and fan-out by construction).
+1. **Edge cases `E04`/`E06`/`E08`/`E09` — signed off and landed (ITT).** Epi
+   review + Oracle confirmation fixed the conventions in `oracle/30_edge_cases.R`
+   (a header documents the two eligibility conventions: monotone "never-yet-treated"
+   for E01–E03/E05–E09 vs. deliberately non-monotone re-entry for E04). All four ITT
+   fixtures pass bit-exact; E04's re-entry assignment rule is now a SPEC §2/§5
+   invariant + property test. **Only `E06`'s PP view remains** (Phase 2): the
+   1→0→1 trajectory must censor at the first deviation and *not* resume at the
+   switch-back.
+2. **Per-protocol (Phase 2):** `expand_until_switch` first-deviation censoring.
+   The package's rule is "discard data after the first switch" (arXiv:2402.12083);
+   generate PP fixtures via the S4 `trial_sequence("PP") |> … |> expand_trials()`
+   path, which expands **without** fitting the switch-weight `glm` and so sidesteps
+   the degenerate-input crash. Confirm whether that path emits a censor/expand-flag
+   column to freeze into `STRUCTURAL_COLS`.
 3. **Tier-2 golden pipeline & weights (Phase 3):** unchanged; needs the R solver.
-4. **Oracle hygiene:** fix the two `run_all.R` blockers above so CI can
-   regenerate the full fixture set (ITT + PP + golden) and diff sha256.
+   A future explicit censoring (`C`) input column would let `E08` carry a real
+   competing-risk tie (same event-before-censor precedence).
+4. **Oracle hygiene:** fix the two `run_all.R` blockers (the `validate_input`
+   `data.table` bug and the PP `glm` crash) so CI can regenerate the full fixture
+   set (ITT + PP + golden) and diff sha256.
