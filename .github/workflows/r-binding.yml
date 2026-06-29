@@ -1,0 +1,71 @@
+name: R binding (tters)
+
+# Builds and tests the `tters` extendr binding: R CMD INSTALL (release) + the
+# testthat round-trip that reproduces the fixture battery through R.
+#
+# This job is intentionally PATH-FILTERED and also available via manual dispatch:
+# the release build compiles Polars with LTO (~15-20 min), so it should not run
+# on unrelated changes.
+#
+# Pinning note: `uses:` here are TAG-pinned (e.g. @v5) to match the repo's other
+# workflows and its deliberate "tag pins + Dependabot" policy. (This differs from
+# the SHA-pinning in .claude/rules/security.md; the repo-wide convention wins —
+# Dependabot tracks the GitHub Actions ecosystem.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/tters/**"
+      - "crates/tte-expand/**"
+      - ".github/workflows/r-binding.yml"
+  pull_request:
+    paths:
+      - "bindings/tters/**"
+      - "crates/tte-expand/**"
+      - ".github/workflows/r-binding.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: only needs to read the repository.
+permissions:
+  contents: read
+
+jobs:
+  install-and-test:
+    name: R CMD INSTALL + testthat round-trip
+    runs-on: ubuntu-latest
+    env:
+      # Point the round-trip test at the immutable in-repo fixture battery.
+      TTERS_FIXTURE_DIR: ${{ github.workspace }}/fixtures
+    steps:
+      - uses: actions/checkout@v5
+
+      # rust-toolchain.toml pins 1.95.0; rustup auto-installs it when cargo runs
+      # in the (detached) binding workspace, so @stable just provides rustup.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # Runtime deps for the round-trip self-test (binaries via RSPM).
+      - name: Install R test dependencies
+        run: Rscript -e 'install.packages(c("testthat", "arrow"))'
+
+      - name: R CMD INSTALL tters (release)
+        run: R CMD INSTALL bindings/tters
+
+      - name: testthat round-trip (full fixture battery through R)
+        run: |
+          Rscript -e '
+            library(tters)
+            testthat::test_dir(
+              "bindings/tters/tests/testthat",
+              stop_on_failure = TRUE,
+              reporter = "summary"
+            )
+          '

@@ -2,7 +2,11 @@
 name = "tters"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.71"
+# MSRV is driven transitively by Polars 0.54.4 (via the tte-expand path dep),
+# which requires the latest stable. Keep in sync with the root workspace's
+# rust-version = "1.95" and clippy.toml's msrv. (Scaffold said 1.71, but Polars
+# cannot build on 1.71 — that was a pre-build estimate.)
+rust-version = "1.95"
 publish = false
 
 [lib]
