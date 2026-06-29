@@ -2,4 +2,6 @@
 
 export(expand_parquet)
 export(expand_trial)
+export(expand_trial_weighted)
+export(expand_weighted_parquet)
 useDynLib(tters, .registration = TRUE)

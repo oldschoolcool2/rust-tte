@@ -8,11 +8,61 @@ NULL
 #' Expand a prepared person-time Parquet dataset into the sequential
 #' target-trial layout and write the result to `output_path`.
 #'
+#' This is a thin FFI shim. All dtype-exact, deterministic Polars work lives in
+#' the `tte_expand` core crate (which is `#![forbid(unsafe_code)]`). The binding
+#' crate cannot forbid unsafe because the extendr macros emit the FFI registrar.
+#' Every `tte_expand::ExpandError` is mapped to an R error condition.
+#'
 #' @param input_path Path to the input Parquet file.
 #' @param output_path Path where the expanded Parquet is written.
 #' @param id_col,period_col,treatment_col Column names in the input.
-#' @param first_period,last_period Inclusive integer period bounds.
+#' @param eligible_col,outcome_col Eligibility / outcome column names
+#'   (`TrialEmulation` defaults are `"eligible"` / `"outcome"`).
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` (no artificial censoring) or `"PP"` (per-protocol,
+#'   censor each trial at the first treatment deviation). Case-insensitive.
+#' @return `NULL`, invisibly; the expansion is written to `output_path`. Errors
+#'   in the core engine surface as R errors.
+#' @examples
+#' \dontrun{
+#' expand_parquet(
+#'   "input.parquet", "expanded.parquet",
+#'   "id", "period", "treatment", "eligible", "outcome",
+#'   0L, .Machine$integer.max, "ITT"
+#' )
+#' }
 #' @export
-expand_parquet <- function(input_path, output_path, id_col, period_col, treatment_col, first_period, last_period) .Call(wrap__expand_parquet, input_path, output_path, id_col, period_col, treatment_col, first_period, last_period)
+expand_parquet <- function(input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand) .Call(wrap__expand_parquet, input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand)
+
+#' Expand a person-time Parquet dataset and attach pre-computed
+#' inverse-probability weights, writing the weighted frame to `output_path`.
+#'
+#' A thin FFI shim over `tte_expand::expand_weighted_parquet`: it expands the
+#' input under `estimand`, joins the per-`(id, period)` factor table at
+#' `factors_path` (`id, period, weight_factor`), and writes the six structural
+#' columns plus the cumulative-product `weight`. The weight *values* come from R
+#' (the `glm` fit); the engine only reproduces their deterministic accumulation.
+#'
+#' @param input_path Path to the input Parquet file.
+#' @param factors_path Path to the per-`(id, period)` factor Parquet
+#'   (`id, period, weight_factor`).
+#' @param output_path Path where the weighted Parquet is written.
+#' @param id_col,period_col,treatment_col Column names in the input.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`; selects the weight *model* upstream, but the
+#'   application arithmetic (join + cumulative product) is identical for both.
+#' @return `NULL`, invisibly; the weighted expansion is written to `output_path`.
+#'   Errors in the core engine surface as R errors.
+#' @examples
+#' \dontrun{
+#' expand_weighted_parquet(
+#'   "input.parquet", "factors.parquet", "weighted.parquet",
+#'   "id", "period", "treatment", "eligible", "outcome",
+#'   0L, .Machine$integer.max, "PP"
+#' )
+#' }
+#' @export
+expand_weighted_parquet <- function(input_path, factors_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand) .Call(wrap__expand_weighted_parquet, input_path, factors_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand)
 
 # nolint end
