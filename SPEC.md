@@ -1,9 +1,9 @@
 # SPEC — Behavioural Specification of the Sequential-Trial Expansion
 
-> **Status: §1–§3 + §5–§6 authored from the pinned Oracle
+> **Status: §1–§6 authored from the pinned Oracle
 > `TrialEmulation 0.0.4.11`. §2 (ITT) shipped in Phase 1; §3 (per-protocol)
-> finalised and shipped in Phase 2.** R-free: behaviour (pseudocode + types),
-> not R syntax.
+> finalised and shipped in Phase 2; §4 (weight application) finalised and shipped
+> in Phase 3.** R-free: behaviour (pseudocode + types), not R syntax.
 >
 > **Authority rule:** the Parquet fixtures in `fixtures/` are the final authority.
 > **When this SPEC and a fixture disagree, the fixture wins** — stop and report the
@@ -46,9 +46,11 @@ dtypes; PP differs from ITT only by having *fewer rows* (see §3):
 
 > These dtype rules are not a design choice — they are what `TrialEmulation
 > 0.0.4.11` emits (verified per-fixture from the generated parquet schemas). The
-> `weight` column it also emits is **not** part of the structural match set and is
-> dropped. No per-protocol censor/expand-flag column exists in this version, so
-> `STRUCTURAL_COLS` is exactly these six for **both** estimands.
+> `weight` column it also emits is **not** part of the **unweighted** ITT/PP
+> structural match set and is dropped there; Phase 3 (§4) re-introduces it as a
+> 7th column (`STRUCTURAL_COLS_WEIGHTED`) on the weighted fixtures, matched within
+> a float tolerance. No per-protocol censor/expand-flag column exists in this
+> version, so `STRUCTURAL_COLS` is exactly these six for **both** estimands.
 
 ## 2. ITT expansion algorithm
 
@@ -193,9 +195,82 @@ Total: **11 ITT rows → 7 PP rows.** Cross-check
 
 ## 4. Weight application — Phase 3
 
-> Join key `(id, trial_period, followup_time)`; multiply the pre-computed IPCW
-> column onto the expanded frame. Exact on the join; ~1e-12 only on the float
-> product. No solver here — weights come from R.
+Each emulated trial carries a per-row inverse-probability **`weight`** that the
+Oracle computes from fitted weight models (IPCW for informative censoring on the
+ITT path; switching weights on the per-protocol path, optionally combined with
+IPCW). **Fitting those models is R's job and is out of scope for the engine.**
+The engine's job is the **deterministic application**: join the pre-computed
+per-period factors and form their cumulative product. This is why the match is
+**exact on the structural columns** and within a **small float tolerance
+(~1e-12 relative)** on `weight` only (ADR-2): the engine redoes the floating-point
+product, which may reassociate relative to R.
+
+### 4.1 The weight is a cumulative product of a per-`(id, period)` factor
+
+Empirically (verified on `data_censored` ITT-IPCW, `data_censored` PP
+switch+censor, and the `high_switching`/`moderate_switching`/`frequent_switching`
+PP switch fixtures), the Oracle's `weight` has this exact structure:
+
+1. **Baseline is 1.** On every `followup_time == 0` (trial-baseline) row,
+   `weight == 1.0` exactly. A trial accrues no weight before any follow-up.
+2. **Per-period factor.** Define the per-row incremental factor within a trial as
+   `fac(t) := weight(t) / weight(t-1)` (and `fac(0) := 1`). This factor is a
+   function of `(id, period)` **only**, where `period := trial_period +
+   followup_time` — it is **invariant across the overlapping trials** that pass
+   through the same `(id, period)` (observed agreement < 5e-16 across all shared
+   cells). It is R's per-period stabilised weight contribution at that
+   person-period.
+3. **Cumulative product.** Hence, within each `(id, trial_period)` ordered by
+   `followup_time`,
+   `weight(t) = ∏_{s=1}^{t} f(id, trial_period + s)`  (and `weight(0) = 1`),
+   where `f(id, p)` is the per-`(id, period)` factor. The product is genuinely
+   cumulative — for `followup_time ≥ 2`, `weight(t) ≠ f(id, period)` (a single
+   factor); the running product is required, not a per-row join.
+
+### 4.2 What the engine consumes and emits
+
+- **Input it joins** — a per-`(id, period)` factor table
+  (`fixtures/weights/input_<name>_<estimand>_weights.parquet`) with columns
+  `id` (passthrough dtype), `period` (Int32), `weight_factor` (Float64). One row
+  per `(id, period)` that is reached as a follow-up period (`followup_time ≥ 1`)
+  by some trial. This is R's pre-computed per-period factor; the engine never
+  fits or predicts it.
+- **Operational rule** — take the structural expanded frame (§2 ITT or §3 PP),
+  and:
+  1. `period := trial_period + followup_time`;
+  2. left-join `weight_factor` on `(id, period)`; set the per-row multiplier
+     `mult := 1.0` where `followup_time == 0`, else `weight_factor`;
+  3. `weight := cumulative_product(mult)` within each `(id, trial_period)`
+     window **ordered by `followup_time`** (a deterministic `cum_prod` window with
+     an explicit `order_by`, exactly as PP's `cum_max` in §3.4);
+  4. emit `weight` as **Float64**; re-sort to `(id, trial_period, followup_time)`.
+- **Output it matches** —
+  `fixtures/weights/expected_<name>_<estimand>_weighted.parquet`: the six
+  `STRUCTURAL_COLS` (§1) **plus `weight` (Float64)**, in the order
+  `id, trial_period, followup_time, assigned_treatment, treatment, outcome,
+  weight`. The structural columns match **exactly** (schema + values + order +
+  row count); `weight` matches within the harness tolerance.
+
+The estimand chooses the weight model (ITT → IPCW; PP → switch ± IPCW) but **not**
+the application arithmetic — join + cumulative product is identical for both. The
+default (no weights supplied) leaves ITT/PP output bit-identical to §2/§3.
+
+### 4.3 Worked micro-example (`high_switching`, `id = 2`, `trial_period = 0`)
+
+A control trial (`assigned_treatment = 0`) whose patient stays untreated; the PP
+switch weight is the inverse probability of remaining untreated:
+
+| followup_time | period | factor `f(id, period)` | `weight` (cumulative) |
+|---|---|---|---|
+| 0 | 0 | — (baseline ⇒ 1) | 1.000000 |
+| 1 | 1 | 0.824586 | 0.824586 |
+| 2 | 2 | 0.854602 | 0.704692 |
+
+`weight(2) = 1.0 × 0.824586 × 0.854602 = 0.704692`. The same `f(id=2, period=1)`
+and `f(id=2, period=2)` are reused (unchanged) by every other trial of `id = 2`
+that passes through periods 1 and 2 as follow-up. Cross-check
+`fixtures/weights/expected_high_switching_pp_weighted.parquet` and the factor
+table `fixtures/weights/input_high_switching_pp_weights.parquet`.
 
 ## 5. Invariants (these also become property tests)
 
@@ -219,6 +294,13 @@ For any valid input, the expanded frame must satisfy:
   (`treatment == assigned_treatment`); and a switch-back never re-introduces a
   later row. PP rows are a subset of the ITT rows for the same input. (Property
   test: `invariant_pp_monotone_censoring`.)
+- **(Weighted) Cumulative IPW product.** When weights are applied, every
+  `followup_time == 0` row has `weight == 1.0`; within each `(id, trial_period)`
+  ordered by `followup_time`, `weight` is the cumulative product of a
+  per-`(id, period)` factor (so the ratios `weight(t)/weight(t-1)` recover that
+  factor, identical across overlapping trials); `weight > 0` everywhere; and the
+  structural columns are byte-identical to the unweighted estimand. (Property
+  test: `invariant_weight_cumulative_product`.)
 
 ## 6. Worked micro-example (E02 — canonical vignette `id = 4`)
 
