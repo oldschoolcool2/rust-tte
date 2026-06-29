@@ -35,6 +35,26 @@ const COL_FOLLOWUP_TIME: &str = "followup_time";
 /// Output column: treatment at the trial baseline, carried forward (ITT).
 const COL_ASSIGNED_TREATMENT: &str = "assigned_treatment";
 
+/// Causal estimand selecting whether follow-up is artificially censored at the
+/// first treatment deviation.
+///
+/// The variant controls only the *structural* censoring (which rows survive);
+/// no statistics are involved. Defaults to [`Estimand::Itt`] so existing callers
+/// are unaffected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum Estimand {
+    /// Intention-to-treat: no artificial censoring. Follow-up runs to the
+    /// patient's last observed period regardless of treatment switching.
+    #[default]
+    Itt,
+    /// Per-protocol: censor each emulated trial's follow-up at the **first**
+    /// `followup_time` where the actual `treatment` deviates from the trial's
+    /// `assigned_treatment`. The deviating row itself is **excluded**, and a
+    /// later switch-back never resumes follow-up.
+    PerProtocol,
+}
+
 /// Errors returned by the expansion engine.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -76,6 +96,8 @@ pub struct ExpandOptions {
     pub first_period: i32,
     /// Inclusive upper bound on `trial_period` (trials seeded later are dropped).
     pub last_period: i32,
+    /// Causal estimand: ITT (default) or per-protocol artificial censoring.
+    pub estimand: Estimand,
 }
 
 impl ExpandOptions {
@@ -97,6 +119,7 @@ impl ExpandOptions {
             outcome_col: "outcome".to_owned(),
             first_period,
             last_period,
+            estimand: Estimand::Itt,
         }
     }
 
@@ -113,14 +136,29 @@ impl ExpandOptions {
         outcome_col.clone_into(&mut self.outcome_col);
         self
     }
+
+    /// Select the causal [`Estimand`] (default [`Estimand::Itt`]).
+    #[must_use]
+    pub fn with_estimand(mut self, estimand: Estimand) -> Self {
+        self.estimand = estimand;
+        self
+    }
 }
 
 /// Expand a prepared person-time [`LazyFrame`] into the sequential
-/// target-trial layout (intention-to-treat).
+/// target-trial layout.
 ///
 /// The returned frame carries exactly the six structural columns, in order:
 /// `id, trial_period, followup_time, assigned_treatment, treatment, outcome`,
 /// sorted by `(id, trial_period, followup_time)`.
+///
+/// # Estimand
+/// With [`Estimand::Itt`] (the default) follow-up runs to each patient's last
+/// observed period. With [`Estimand::PerProtocol`] each trial is artificially
+/// censored at the first `followup_time` where `treatment` deviates from
+/// `assigned_treatment`: the deviating row is dropped and a later switch-back
+/// never resumes follow-up. PP is exactly the ITT expansion with those rows
+/// removed — same columns, dtypes and order, fewer rows.
 ///
 /// # Dtypes
 /// To match the Oracle bit-for-bit the engine preserves input dtypes and applies
@@ -207,11 +245,48 @@ pub fn expand(input: LazyFrame, options: &ExpandOptions) -> Result<LazyFrame> {
                 .with_maintain_order(true),
         );
 
-    Ok(expanded)
+    match options.estimand {
+        // ITT: return the full expansion, byte-identical to Phase 1.
+        Estimand::Itt => Ok(expanded),
+        // PP: keep only rows STRICTLY BEFORE each trial's first deviation.
+        // Within each `(id, trial_period)` window, ordered explicitly by
+        // `followup_time`, the cumulative max of the deviation flag
+        // (`treatment != assigned_treatment`) is `0` exactly on the adherent
+        // prefix and flips to `1` at the first deviation — which also discards
+        // every later row, so a switch-back cannot resume follow-up. The
+        // baseline row never deviates by construction. The explicit `order_by`
+        // makes the cumulative independent of physical row order (determinism).
+        Estimand::PerProtocol => {
+            const COL_CUMDEV: &str = "__tte_cumulative_deviation";
+            let cumulative_deviation = col(treatment)
+                .neq(col(COL_ASSIGNED_TREATMENT))
+                .cast(DataType::Int32)
+                .cum_max(false)
+                .over_with_options(
+                    Some(vec![col(id), col(COL_TRIAL_PERIOD)]),
+                    Some((vec![col(COL_FOLLOWUP_TIME)], SortOptions::default())),
+                    WindowMapping::default(),
+                )?
+                .alias(COL_CUMDEV);
+            let censored = expanded
+                .with_column(cumulative_deviation)
+                .filter(col(COL_CUMDEV).eq(lit(0i32)))
+                .select([
+                    col(id),
+                    col(COL_TRIAL_PERIOD),
+                    col(COL_FOLLOWUP_TIME),
+                    col(COL_ASSIGNED_TREATMENT),
+                    col(treatment),
+                    col(outcome),
+                ]);
+            Ok(censored)
+        },
+    }
 }
 
-/// Read the Parquet file at `input_path`, expand it (ITT), and write the
-/// dtype-exact result to `output_path`.
+/// Read the Parquet file at `input_path`, expand it under `options.estimand`
+/// (ITT by default, or per-protocol), and write the dtype-exact result to
+/// `output_path`.
 ///
 /// # Errors
 /// Returns [`ExpandError`] if reading/writing fails, the input path is not valid
@@ -240,7 +315,7 @@ mod tests {
     //! `tests/itt.rs`; this module is the engine's co-located regression net.
     use std::path::{Path, PathBuf};
 
-    use super::{ExpandOptions, expand, expand_parquet};
+    use super::{Estimand, ExpandOptions, expand, expand_parquet};
     use polars::prelude::*;
 
     /// Resolve a path under the repo-root `fixtures/` directory.
@@ -305,6 +380,65 @@ mod tests {
         );
 
         // Values: per-column exact equality with a readable frame-level diff.
+        for col_name in expected.get_column_names() {
+            let a = actual.column(col_name).expect("actual column");
+            let e = expected.column(col_name).expect("expected column");
+            assert!(
+                a.equals(e),
+                "[{name}] column '{col_name}' differs\n--- actual (head 20) ---\n{}\n--- expected (head 20) ---\n{}",
+                actual.head(Some(20)),
+                expected.head(Some(20))
+            );
+        }
+    }
+
+    /// Expand `fixtures/<subdir>/input_<name>.parquet` under the per-protocol
+    /// estimand and assert it equals `fixtures/<subdir>/expected_<name>_pp.parquet`
+    /// exactly (schema + values + order). PP keeps the same six structural
+    /// columns/dtypes as ITT; censoring shows up purely as missing rows.
+    fn assert_pp_matches(subdir: &str, name: &str) {
+        let input = fixture(&format!("{subdir}/input_{name}.parquet"));
+        let expected_path = fixture(&format!("{subdir}/expected_{name}_pp.parquet"));
+        assert!(input.exists(), "missing input fixture: {}", input.display());
+        assert!(
+            expected_path.exists(),
+            "missing expected fixture: {}",
+            expected_path.display()
+        );
+
+        let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX)
+            .with_estimand(Estimand::PerProtocol);
+        let lf = LazyFrame::scan_parquet(
+            PlRefPath::new(input.to_str().expect("utf8")),
+            ScanArgsParquet::default(),
+        )
+        .expect("scan input");
+        let actual = expand(lf, &opts)
+            .expect("expand ok")
+            .collect()
+            .expect("collect actual");
+        let expected = read_parquet(&expected_path);
+
+        assert_eq!(
+            actual.get_column_names(),
+            expected.get_column_names(),
+            "[{name}] column names/order differ"
+        );
+        assert_eq!(
+            actual.dtypes(),
+            expected.dtypes(),
+            "[{name}] dtypes differ\n  actual:   {:?}\n  expected: {:?}",
+            actual.dtypes(),
+            expected.dtypes()
+        );
+        assert_eq!(
+            actual.height(),
+            expected.height(),
+            "[{name}] row count differs: actual {} vs expected {}",
+            actual.height(),
+            expected.height()
+        );
+
         for col_name in expected.get_column_names() {
             let a = actual.column(col_name).expect("actual column");
             let e = expected.column(col_name).expect("expected column");
@@ -403,6 +537,98 @@ mod tests {
     #[test]
     fn scenario_strong_confounding() {
         assert_itt_matches("scenarios", "strong_confounding");
+    }
+
+    // ---- Per-protocol (PP) artificial censoring: same six structural columns,
+    //      censoring shows up as missing rows. PP==ITT for the control-only /
+    //      single-row cases (E01/E03/E05/E07/E08/E09); divergence on E02/E04/E06
+    //      and every scenario. ----
+    #[test]
+    fn pp_e01_single() {
+        assert_pp_matches("edge", "E01_single");
+    }
+
+    #[test]
+    fn pp_e02_id4_canonical_divergence() {
+        assert_pp_matches("edge", "E02_id4_canonical");
+    }
+
+    #[test]
+    fn pp_e03_event_at_baseline() {
+        assert_pp_matches("edge", "E03_event_at_baseline");
+    }
+
+    #[test]
+    fn pp_e04_reentry_divergence() {
+        assert_pp_matches("edge", "E04_reentry");
+    }
+
+    #[test]
+    fn pp_e05_never_treats() {
+        assert_pp_matches("edge", "E05_never_treats");
+    }
+
+    // E06 is the canonical switch-back trap (treatment 1,1,0,1; assigned=1): PP
+    // must censor at the first deviation (followup_time 2) and NOT resume at the
+    // switch-back (followup_time 3), leaving exactly followup_time 0 and 1.
+    #[test]
+    fn pp_e06_switch_then_back() {
+        assert_pp_matches("edge", "E06_switch_then_back");
+    }
+
+    #[test]
+    fn pp_e07_last_period_only() {
+        assert_pp_matches("edge", "E07_last_period_only");
+    }
+
+    #[test]
+    fn pp_e08_ties() {
+        assert_pp_matches("edge", "E08_ties");
+    }
+
+    #[test]
+    fn pp_e09_max_fanout() {
+        assert_pp_matches("edge", "E09_max_fanout");
+    }
+
+    #[test]
+    fn pp_scenario_common() {
+        assert_pp_matches("scenarios", "common");
+    }
+
+    #[test]
+    fn pp_scenario_rare_event() {
+        assert_pp_matches("scenarios", "rare_event");
+    }
+
+    #[test]
+    fn pp_scenario_ultra_rare_event() {
+        assert_pp_matches("scenarios", "ultra_rare_event");
+    }
+
+    #[test]
+    fn pp_scenario_rare_initiation() {
+        assert_pp_matches("scenarios", "rare_initiation");
+    }
+
+    #[test]
+    fn pp_scenario_high_switching() {
+        assert_pp_matches("scenarios", "high_switching");
+    }
+
+    #[test]
+    fn pp_scenario_heavy_censoring() {
+        assert_pp_matches("scenarios", "heavy_censoring");
+    }
+
+    #[test]
+    fn pp_scenario_short_followup() {
+        assert_pp_matches("scenarios", "short_followup");
+    }
+
+    #[test]
+    fn pp_scenario_strong_confounding() {
+        assert_pp_matches("scenarios", "strong_confounding");
     }
 
     // ---- Public `expand_parquet` round-trip (write -> reread dtype fidelity). ----
@@ -543,6 +769,121 @@ mod tests {
             reentry.height(),
             2,
             "E04 re-entry trial (3) must carry assigned=1 across its 2 rows"
+        );
+    }
+
+    #[test]
+    fn invariant_pp_monotone_censoring() {
+        // SPEC §5 (PP): once a trial deviates it is censored — the retained
+        // follow-up is a contiguous prefix 0..k of ADHERENT rows, with NO row at
+        // or after the first deviation (so a switch-back never resumes). This is
+        // derived from the input fixtures alone, independent of the PP expected
+        // fixtures, so it stands as a true invariant rather than a tautology.
+        fn col_i64(df: &DataFrame, name: &str) -> Vec<i64> {
+            df.column(name)
+                .expect("column")
+                .cast(&DataType::Int64)
+                .expect("cast i64")
+                .i64()
+                .expect("i64")
+                .into_no_null_iter()
+                .collect()
+        }
+        // (id, trial_period) -> rows (followup_time, treatment, assigned), in the
+        // engine's canonical followup_time order.
+        fn grouped(df: &DataFrame) -> std::collections::BTreeMap<(i64, i64), Vec<(i64, i64, i64)>> {
+            let id = col_i64(df, "id");
+            let tp = col_i64(df, "trial_period");
+            let fu = col_i64(df, "followup_time");
+            let trt = col_i64(df, "treatment");
+            let asg = col_i64(df, "assigned_treatment");
+            let mut m: std::collections::BTreeMap<(i64, i64), Vec<(i64, i64, i64)>> =
+                std::collections::BTreeMap::new();
+            for ((((id, tp), fu), trt), asg) in id.into_iter().zip(tp).zip(fu).zip(trt).zip(asg) {
+                m.entry((id, tp)).or_default().push((fu, trt, asg));
+            }
+            m
+        }
+
+        for name in ["E02_id4_canonical", "E04_reentry", "E06_switch_then_back"] {
+            let input = fixture(&format!("edge/input_{name}.parquet"));
+            let scan = || {
+                LazyFrame::scan_parquet(
+                    PlRefPath::new(input.to_str().expect("utf8")),
+                    ScanArgsParquet::default(),
+                )
+                .expect("scan")
+            };
+            let itt_opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX);
+            let pp_opts = itt_opts.clone().with_estimand(Estimand::PerProtocol);
+            let itt = expand(scan(), &itt_opts)
+                .expect("itt")
+                .collect()
+                .expect("collect itt");
+            let pp = expand(scan(), &pp_opts)
+                .expect("pp")
+                .collect()
+                .expect("collect pp");
+
+            let itt_g = grouped(&itt);
+            let pp_g = grouped(&pp);
+
+            for (key, itt_rows) in &itt_g {
+                // Expected PP keep-count = length of the leading adherent run.
+                let keep = itt_rows
+                    .iter()
+                    .position(|&(_, trt, asg)| trt != asg)
+                    .unwrap_or(itt_rows.len());
+                let pp_rows = pp_g.get(key).cloned().unwrap_or_default();
+                assert_eq!(
+                    pp_rows.len(),
+                    keep,
+                    "[{name}] trial {key:?}: PP kept {} rows, expected the {keep}-row leading adherent prefix",
+                    pp_rows.len()
+                );
+                for (idx, (fu, trt, asg)) in pp_rows.into_iter().enumerate() {
+                    let expected_fu = i64::try_from(idx).expect("index fits i64");
+                    assert_eq!(
+                        fu, expected_fu,
+                        "[{name}] trial {key:?}: PP follow-up is not a contiguous 0.. prefix"
+                    );
+                    assert_eq!(
+                        trt, asg,
+                        "[{name}] trial {key:?}: PP retained a non-adherent row at followup_time {fu}"
+                    );
+                }
+            }
+
+            // PP trials are a subset of ITT trials (censoring only removes rows).
+            for key in pp_g.keys() {
+                assert!(
+                    itt_g.contains_key(key),
+                    "[{name}] PP trial {key:?} absent from the ITT expansion"
+                );
+            }
+        }
+
+        // Concrete switch-back trap: E06 (treatment 1,1,0,1; assigned=1) keeps
+        // exactly followup_time {0,1}; the deviation (fu=2) and switch-back (fu=3)
+        // are both gone.
+        let input = fixture("edge/input_E06_switch_then_back.parquet");
+        let pp = expand(
+            LazyFrame::scan_parquet(
+                PlRefPath::new(input.to_str().expect("utf8")),
+                ScanArgsParquet::default(),
+            )
+            .expect("scan"),
+            &ExpandOptions::new("id", "period", "treatment", 0, i32::MAX)
+                .with_estimand(Estimand::PerProtocol),
+        )
+        .expect("pp")
+        .collect()
+        .expect("collect");
+        let fu = col_i64(&pp, "followup_time");
+        assert_eq!(
+            fu,
+            vec![0, 1],
+            "E06 PP must keep exactly followup_time 0 and 1 (switch-back at fu=3 excluded)"
         );
     }
 }
