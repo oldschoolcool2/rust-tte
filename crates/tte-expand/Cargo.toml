@@ -10,13 +10,42 @@ description = "Verified, high-performance data-expansion stage for sequential ta
 readme = "README.md"
 keywords = ["epidemiology", "target-trial", "polars", "causal-inference"]
 categories = ["science", "data-structures"]
+# Phase 5 declares its bench targets explicitly below; disable auto-discovery so
+# the shared `benches/support.rs` generator is not mistaken for its own bench.
+autobenches = false
 
 [dependencies]
 polars = { workspace = true }
 thiserror = { workspace = true }
 
-# Integration tests in tests/ can already use `polars` via the normal dependency
-# above, so no dev-dependency duplication is needed.
+# Integration tests can already use `polars` via the normal dependency above, so
+# no dev-dependency duplication is needed for them.
+
+[dev-dependencies]
+# Phase-5 benchmark + reproducibility-certificate harness. All dev-only: none
+# affect the library build or the public API, and the `tters` binding (its own
+# excluded workspace + lockfile) never sees them.
+#   * criterion  — runtime micro-benchmarks of `expand` / `apply_weights`; relies
+#     on the workspace `panic = "unwind"` (root Cargo.toml) to unwind across the
+#     bench harness.
+#   * serde_json — parse the Oracle `MANIFEST.json` (provenance + per-fixture
+#     digests) for the certificate, instead of hand-rolling JSON.
+#   * sha2       — recompute each committed fixture's SHA-256 to prove it still
+#     matches the manifest (differential integrity) with no external tool, so
+#     `make verify` stays pure-cargo and reproducible on any platform.
+criterion = "0.5"
+serde_json = "1"
+sha2 = "0.10"
+
+# Explicit bench targets (autobenches = false). `expand` is the criterion
+# harness; `certificate` (added with its source) is a plain generator binary.
+[[bench]]
+name = "expand"
+harness = false
+
+[[bench]]
+name = "certificate"
+harness = false
 
 [lints]
 workspace = true
