@@ -1,0 +1,214 @@
+{
+  "provenance": {
+    "package": "TrialEmulation",
+    "package_version": "0.0.4.11",
+    "r_version": "R version 4.3.3 (2024-02-29)",
+    "generated_utc": "2026-06-29T10:13:06Z"
+  },
+  "fixtures": [
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E01_single.parquet",
+      "sha256": "2e10b5250edf58611484ae5a3ea6d651d7cb6233a6f46a960cb91eee827be4b2",
+      "n_rows": 1
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E01_single_itt.parquet",
+      "sha256": "97c02eb0cba60e6be43cb776fcd436504aafd39486c3d8f74b78f007bee80bda",
+      "n_rows": 1
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E02_id4_canonical.parquet",
+      "sha256": "4fa167a4c8319b4e9e15c5e28dfe2bfe5565578be3f4d0a8fc3d487973748563",
+      "n_rows": 10
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E02_id4_canonical_itt.parquet",
+      "sha256": "c6b1bc5c43764b35b81b3d6b4fe53aa4917d470b809d551d82ba1ae33f3cfc39",
+      "n_rows": 27
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E03_event_at_baseline.parquet",
+      "sha256": "50365fcc0899f79d51ffb48be93855ae11d5355149472e895b77005bf0fbec68",
+      "n_rows": 1
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E03_event_at_baseline_itt.parquet",
+      "sha256": "6cf50a011d620a126a1d7b8d6d74b0e86762f318e65827a1ed38cd42e9da809f",
+      "n_rows": 1
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E04_reentry.parquet",
+      "sha256": "0a63f4ad959b1284f5290a448838d6a8e1bd3f33a1b1e04a7d45934dee139627",
+      "n_rows": 5
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E04_reentry_itt.parquet",
+      "sha256": "fdde0582e0f02b8cbe374fb9cf3202ef121ffb30d8c50a532c357573948e86e0",
+      "n_rows": 11
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E05_never_treats.parquet",
+      "sha256": "301c09cce1f6dff1157b73c6bc13376c0f3ecb572a9f102d7006fc6912947281",
+      "n_rows": 5
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E05_never_treats_itt.parquet",
+      "sha256": "6bf28f19ea72b10ed9779c97bd2e49d5acf0719713612d9ab3caea7037bf223d",
+      "n_rows": 15
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E06_switch_then_back.parquet",
+      "sha256": "fbd0dde5d9db7c779225df16097b2fbf3f7ebfffc493ea7562a5627fff05822d",
+      "n_rows": 4
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E06_switch_then_back_itt.parquet",
+      "sha256": "8f9871e677c27b19c894fa1efdb99f0269bbd51f9d14bb0225e11829db5641fa",
+      "n_rows": 4
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E07_last_period_only.parquet",
+      "sha256": "8bb965bcd0ef2d983384470a8efd84837a1644b738d7218c150945e6c3a83113",
+      "n_rows": 4
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E07_last_period_only_itt.parquet",
+      "sha256": "0e8ab49b87aab0e61639ea29431e9d7ec35764af3a2e0161ad05ef83f4ee03b7",
+      "n_rows": 1
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E08_ties.parquet",
+      "sha256": "97b3ad60883b6321c238ab18de0f623ee28f9c0db8e6bc3baebd8917fd9c8ac0",
+      "n_rows": 3
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E08_ties_itt.parquet",
+      "sha256": "e5f652a15984f6b46a1a8bab48e0a9112882a8a0abf96602d08c5655c7cac12b",
+      "n_rows": 6
+    },
+    {
+      "role": "input",
+      "path": "fixtures/edge/input_E09_max_fanout.parquet",
+      "sha256": "1332b53ab7cd1405010ff36f6afb671bab192964db4277a98f84aba38f951d70",
+      "n_rows": 31
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/edge/expected_E09_max_fanout_itt.parquet",
+      "sha256": "117a94c9d96821b443df554f5c9a4f4d36dff25b7f27c2cd8e0b312d034cb9f6",
+      "n_rows": 496
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_common.parquet",
+      "sha256": "c7d23ffcd5be039e30968fc8bb74b01448e28fad2fe2072e613ca5c0837d24c9",
+      "n_rows": 2200
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_common_itt.parquet",
+      "sha256": "e31e6432b00ca71a8a5da430fc29b3b876fd0b0c39ea6e5ee6d9841d4e752b33",
+      "n_rows": 7608
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_rare_event.parquet",
+      "sha256": "b1e64c8e53135ccc1e9c777ae2f995f75a146fa5628350a297315883adba4d0b",
+      "n_rows": 10525
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_rare_event_itt.parquet",
+      "sha256": "68266333e105b51ab3305c9bfca572abed4c7f31f38eab0600c98a1eafb2cc6b",
+      "n_rows": 40138
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_ultra_rare_event.parquet",
+      "sha256": "dc8d0ed90423af7d5c20188cbc702cc68d70a1ebb77df1017461f42e4542f176",
+      "n_rows": 28542
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_ultra_rare_event_itt.parquet",
+      "sha256": "c7b9e6d7ea3575c5cd1f7766d614fec5c870da24825476020efbc7f5c88c2d5a",
+      "n_rows": 114475
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_rare_initiation.parquet",
+      "sha256": "ba975d17a81428b6e83a0bb804244092470d1de25a7969c8599fca927f4877b7",
+      "n_rows": 6248
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_rare_initiation_itt.parquet",
+      "sha256": "32751dd7875fb104be713122badab8735b147cb5d17b435253d7d4ae9dd633c0",
+      "n_rows": 40457
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_high_switching.parquet",
+      "sha256": "d79bd2127cdc4d9f790d3fe282d139da1d55a24c5b053eb4c20bbfafbd8e5953",
+      "n_rows": 4077
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_high_switching_itt.parquet",
+      "sha256": "51ed7404a8a6638f0cbfe6de8f65d6f8c8a2a4ee6610ccd2e008e162e051de05",
+      "n_rows": 18556
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_heavy_censoring.parquet",
+      "sha256": "a0398becf00aa01518bbfbb003a52fd54ee610b89431240d51b0967d1d8e7d63",
+      "n_rows": 2084
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_heavy_censoring_itt.parquet",
+      "sha256": "2748521e96b731e097321fde1d631809e73e9171d44ed51d18527a49500d6539",
+      "n_rows": 5938
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_short_followup.parquet",
+      "sha256": "45fa8845620213bf538a39b87c13b584ebdf5751d6bf8d5ab7f48069046367ee",
+      "n_rows": 1390
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_short_followup_itt.parquet",
+      "sha256": "212558a43085ebc4696a1dfd482f10d1c43928403dd20f1d9bfaeb890295f3c4",
+      "n_rows": 2518
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_strong_confounding.parquet",
+      "sha256": "a6a59e9ea96185d778bcb06da500b992cf31fd317d2dda046181d14cc1cf9998",
+      "n_rows": 5166
+    },
+    {
+      "role": "expected_itt",
+      "path": "fixtures/scenarios/expected_strong_confounding_itt.parquet",
+      "sha256": "7f571167b6702fb81b766845b37375b5726cd4667034cea40671dba4df4b15ab",
+      "n_rows": 23770
+    }
+  ]
+}
