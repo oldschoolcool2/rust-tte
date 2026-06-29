@@ -10,31 +10,36 @@ exclude = ["bindings/tters"]
 
 [workspace.package]
 edition = "2024"
-# MSRV: floor for edition 2024. DISTINCT from the pinned dev/CI toolchain
-# (rust-toolchain.toml = 1.95.0). Keep this in sync with the MSRV CI job.
-rust-version = "1.85"
+# MSRV. Edition 2024 floors at 1.85, but the polars 0.54 dependency tree pulls
+# crates (simd-json, sysinfo) that require Rust 1.88 — so 1.88 is the real floor
+# (confirmed from the resolved Cargo.lock). DISTINCT from the pinned dev/CI
+# toolchain (rust-toolchain.toml = 1.95.0). Keep in sync with the MSRV CI job and
+# clippy.toml.
+rust-version = "1.88"
 license = "Apache-2.0"
 repository = "https://github.com/oldschoolcool2/rust-tte"
 authors = ["Michael Batech <oldschoolcool@gmail.com>"]
 
 [workspace.dependencies]
-# Polars pin. 0.50 is the most recent version CONFIRMED available via context7 at
-# scaffold time (2026-06); a web check during research suggested 0.53 may be
-# newer. Resolve this on the first `cargo build` (which has network) and bump to
-# the latest stable, then commit the refreshed Cargo.lock.
+# Polars pinned to 0.54 (latest stable on crates.io = 0.54.4, verified 2026-06-29);
+# the exact resolved version is locked in Cargo.lock. default-features = false
+# keeps the build off the nightly `simd` feature (pola-rs#26348).
 #
-# default-features = false keeps the build off the nightly `simd` feature
-# (pola-rs#26348: portable_simd LaneCount removal breaks `simd`/`nightly` on
-# recent toolchains). The explicit dtype-full + cum/is_in features back the
-# dtype-exact, deterministic expansion engine. Features will grow as the engine
-# is implemented (e.g. global string cache for cross-frame categorical equality).
-polars = { version = "0.50", default-features = false, features = [
+# Feature notes — the engine works on integer + categorical columns, and the input
+# has NO datetime columns, so temporal dtypes are deliberately absent:
+#   * `dtype-categorical` covers R factor columns (e.g. catvarA/B/C); the default
+#     i32/i64/f64/bool/str dtypes cover everything else the Oracle parquet emits.
+#   * `dtype-full` is intentionally AVOIDED: its temporal dtypes (dtype-date /
+#     dtype-datetime / dtype-time) activate a broken `Strptime` lowering arm in
+#     polars-stream 0.54.4 (it references an unimported `IRStringFunction` and
+#     fails to compile). polars-stream is still pulled transitively
+#     (parquet -> streaming -> lazy) but compiles cleanly once those dtypes are off.
+# Grow this list — re-checking that it still compiles — as the engine needs more.
+polars = { version = "0.54", default-features = false, features = [
     "lazy",
-    "streaming",
     "parquet",
-    "dtype-full",
+    "dtype-categorical",
     "is_in",
-    "round_series",
     "cum_agg",
 ] }
 thiserror = "2.0"

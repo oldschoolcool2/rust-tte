@@ -16,4 +16,3 @@ NULL
 expand_parquet <- function(input_path, output_path, id_col, period_col, treatment_col, first_period, last_period) .Call(wrap__expand_parquet, input_path, output_path, id_col, period_col, treatment_col, first_period, last_period)
 
 # nolint end
-

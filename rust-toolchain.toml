@@ -12,4 +12,3 @@ profile = "minimal"
 components = ["rustfmt", "clippy"]
 # Uncomment if you cross-compile or ship the R binding for other hosts:
 # targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]
-

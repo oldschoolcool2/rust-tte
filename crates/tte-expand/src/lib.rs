@@ -115,4 +115,3 @@ pub fn expand_parquet(
     let _ = (input_path.as_ref(), output_path.as_ref(), options);
     unimplemented!("tte-expand: expand_parquet is not yet implemented")
 }
-

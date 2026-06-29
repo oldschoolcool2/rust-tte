@@ -88,4 +88,3 @@ if (!is.na(msrv)) {
 
 versions_fmt <- "Using %s\nUsing %s"
 message(sprintf(versions_fmt, cargo_version, rustc_version))
-

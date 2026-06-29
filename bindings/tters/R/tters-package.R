@@ -40,4 +40,3 @@ expand_trial <- function(input_path,
   )
   invisible(output_path)
 }
-

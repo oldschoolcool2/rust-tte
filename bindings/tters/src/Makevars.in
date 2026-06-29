@@ -53,4 +53,3 @@ rust_clean: $(SHLIB)
 
 clean:
 	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) "$(TARGET_DIR)" "$(VENDOR_DIR)"
-

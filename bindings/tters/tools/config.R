@@ -90,4 +90,3 @@ writeLines(new_txt, con, sep = "\n")
 close(con)
 
 message("`tools/config.R` has finished.")
-

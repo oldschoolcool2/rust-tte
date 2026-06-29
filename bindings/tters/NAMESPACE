@@ -3,4 +3,3 @@
 export(expand_parquet)
 export(expand_trial)
 useDynLib(tters, .registration = TRUE)
-

@@ -18,4 +18,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("failed to write {wrapper_path}: {e}"))?;
     Ok(())
 }
-

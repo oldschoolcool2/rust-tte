@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 description = "Verified, high-performance data-expansion stage for sequential target trial emulation (Rust + Polars), reproducing R TrialEmulation output bit-for-bit."
+readme = "README.md"
 keywords = ["epidemiology", "target-trial", "polars", "causal-inference"]
 categories = ["science", "data-structures"]
 
@@ -19,4 +20,3 @@ thiserror = { workspace = true }
 
 [lints]
 workspace = true
-

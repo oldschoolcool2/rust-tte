@@ -76,16 +76,16 @@ jobs:
       - run: cargo check --workspace --all-targets --all-features --locked
 
   msrv:
-    name: msrv (1.85.0)
+    name: msrv (1.88.0)
     runs-on: ubuntu-latest
-    # Force 1.85.0 via RUSTUP_TOOLCHAIN — otherwise rust-toolchain.toml (1.95.0)
+    # Force 1.88.0 via RUSTUP_TOOLCHAIN — otherwise rust-toolchain.toml (1.95.0)
     # would shadow the dtolnay selection and this job would NOT verify the MSRV.
     env:
-      RUSTUP_TOOLCHAIN: "1.85.0"
+      RUSTUP_TOOLCHAIN: "1.88.0"
     steps:
       - uses: actions/checkout@v5
       # Keep this pin in sync with [workspace.package] rust-version in Cargo.toml.
-      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-features --all-targets --locked
 
@@ -98,4 +98,3 @@ jobs:
         with:
           tool: cargo-deny
       - run: cargo deny --all-features check
-

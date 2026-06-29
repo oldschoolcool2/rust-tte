@@ -33,4 +33,3 @@ codegen-units = 1
 # (commit src/rust/Cargo.lock). The path dependency above still resolves in the
 # monorepo. This MUST stay consistent with `exclude` in the root Cargo.toml.
 [workspace]
-

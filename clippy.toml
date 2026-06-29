@@ -4,8 +4,8 @@
 # https://doc.rust-lang.org/clippy/configuration.html
 
 # Clippy normally auto-reads MSRV from Cargo.toml `rust-version`. Pinned here for
-# the core crate; keep in sync with [workspace.package].rust-version = "1.85".
-msrv = "1.85.0"
+# the core crate; keep in sync with [workspace.package].rust-version = "1.88".
+msrv = "1.88.0"
 
 # Fresh crate: lint the full public surface.
 avoid-breaking-exported-api = false
@@ -19,4 +19,3 @@ allow-dbg-in-tests = true
 # An expansion/row-builder engine has wide signatures and rich Polars types.
 too-many-arguments-threshold = 8
 type-complexity-threshold = 300
-

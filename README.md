@@ -87,12 +87,16 @@ rust-tte/
 
 ## Status
 
-🚧 **Phase 0 — scaffolding.** The repository structure, tooling, and contract
-boundaries are being established. The engine itself is not yet implemented; the
-test harness is wired to fail cleanly against an `unimplemented!()` entry point.
-See [`ROADMAP.md`](ROADMAP.md) for the phase plan and
-[`docs/001-initial-ideations/`](docs/001-initial-ideations/) for the full design
-rationale.
+✅ **Phase 0 — scaffold complete (2026-06-29).** The repository structure,
+tooling, and contract boundaries are in place; the workspace compiles and passes
+the strict CI gates (`clippy -D warnings`, `fmt --check`, `cargo test` with the
+contract test `#[ignore]`d). The engine itself is the **next** step — its public
+entry points are documented `unimplemented!()` stubs. Remaining Phase-0 sign-off
+(generating the Parquet fixtures from the R Oracle and freezing `STRUCTURAL_COLS`)
+needs the pinned R environment — see the
+[Phase-0 summary](docs/002-phase-0-scaffold/001-phase-0-summary.md),
+[`ROADMAP.md`](ROADMAP.md), and
+[`docs/001-initial-ideations/`](docs/001-initial-ideations/).
 
 ## Quickstart
 
@@ -111,11 +115,15 @@ cargo fmt --all --check
 cargo clippy --all-targets --all-features
 ```
 
-> **First-time setup:** CI runs every cargo job with `--locked`, so commit the
-> generated `Cargo.lock` once (`cargo generate-lockfile && git add Cargo.lock`).
-> Until then the lockfile-dependent CI jobs will fail by design. The pinned
-> Polars version (`0.50`) should also be confirmed/bumped to the latest stable on
-> that first networked build.
+> **Toolchain & lockfiles.** The toolchain is pinned via
+> [`rust-toolchain.toml`](rust-toolchain.toml) (1.95.0; MSRV 1.88). `Cargo.lock`
+> (root) and `bindings/tters/src/rust/Cargo.lock` are committed, and CI runs every
+> cargo job with `--locked`. Polars is pinned to `0.54`.
+>
+> **Optional pre-commit hooks** mirror the CI gates:
+> ```sh
+> pre-commit install && pre-commit install --hook-type commit-msg
+> ```
 
 Regenerating fixtures from the Oracle requires R and the pinned `TrialEmulation`
 package; see [`oracle/README.md`](oracle/README.md).

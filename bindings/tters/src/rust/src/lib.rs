@@ -40,4 +40,3 @@ extendr_module! {
     mod tters;
     fn expand_parquet;
 }
-

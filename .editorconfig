@@ -26,4 +26,3 @@ indent_size = 2
 # Generated/templated R-package files use tabs (Makevars) -- handled below.
 [{Makefile,Makevars,Makevars.in,Makevars.win,Makevars.win.in}]
 indent_style = tab
-

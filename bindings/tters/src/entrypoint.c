@@ -8,4 +8,3 @@ void R_init_tters(void *dll) {
     register_extendr_panic_hook();
     R_init_tters_extendr(dll);
 }
-
