@@ -344,6 +344,26 @@ mod tests {
         assert_itt_matches("edge", "E07_last_period_only");
     }
 
+    #[test]
+    fn e04_reentry_assignment_from_reentry_period() {
+        assert_itt_matches("edge", "E04_reentry");
+    }
+
+    #[test]
+    fn e06_switch_then_back_itt_no_censoring() {
+        assert_itt_matches("edge", "E06_switch_then_back");
+    }
+
+    #[test]
+    fn e08_ties_event_across_overlapping_trials() {
+        assert_itt_matches("edge", "E08_ties");
+    }
+
+    #[test]
+    fn e09_max_fanout_row_count_invariant() {
+        assert_itt_matches("edge", "E09_max_fanout");
+    }
+
     // ---- Simulated scenario cohorts (events + censoring + switching). ----
     #[test]
     fn scenario_common() {
@@ -454,5 +474,75 @@ mod tests {
             .collect()
             .expect("filter baselines");
         assert_eq!(baselines.height(), 3, "expected one baseline per trial");
+    }
+
+    #[test]
+    fn invariant_assigned_treatment_sourced_from_trial_period() {
+        // SPEC §2 invariant (the re-entry-critical property): assigned_treatment
+        // within (id, trial_period) is the patient's treatment AT trial_period, not
+        // frozen from first eligibility. E04 re-entry (trials 0,1,3) carries assigned
+        // 0,0,1; a freeze-from-first-eligibility bug would wrongly give trial 3 = 0.
+        let input = fixture("edge/input_E04_reentry.parquet");
+        let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX);
+        let lf = LazyFrame::scan_parquet(
+            PlRefPath::new(input.to_str().expect("utf8")),
+            ScanArgsParquet::default(),
+        )
+        .expect("scan");
+        let out = expand(lf, &opts)
+            .expect("expand")
+            .collect()
+            .expect("collect");
+
+        // Baseline treatment per period, straight from the input.
+        let baseline = read_parquet(&input).lazy().select([
+            col("period").cast(DataType::Int64).alias("tp_key"),
+            col("treatment")
+                .cast(DataType::Int64)
+                .alias("baseline_treatment"),
+        ]);
+
+        // Join every output row to the input baseline at period == trial_period;
+        // assigned_treatment must never disagree.
+        let mismatches = out
+            .clone()
+            .lazy()
+            .with_columns([
+                col("trial_period").cast(DataType::Int64).alias("tp_key"),
+                col("assigned_treatment")
+                    .cast(DataType::Int64)
+                    .alias("assigned_i"),
+            ])
+            .join(
+                baseline,
+                [col("tp_key")],
+                [col("tp_key")],
+                JoinArgs::new(JoinType::Inner),
+            )
+            .filter(col("assigned_i").neq(col("baseline_treatment")))
+            .collect()
+            .expect("join");
+        assert_eq!(
+            mismatches.height(),
+            0,
+            "assigned_treatment must equal input treatment at trial_period for every row"
+        );
+
+        // Concretely: the re-entry trial (trial_period == 3) carries assigned == 1.
+        let reentry = out
+            .lazy()
+            .filter(col("trial_period").cast(DataType::Int64).eq(lit(3i64)))
+            .filter(
+                col("assigned_treatment")
+                    .cast(DataType::Int64)
+                    .eq(lit(1i64)),
+            )
+            .collect()
+            .expect("reentry");
+        assert_eq!(
+            reentry.height(),
+            2,
+            "E04 re-entry trial (3) must carry assigned=1 across its 2 rows"
+        );
     }
 }

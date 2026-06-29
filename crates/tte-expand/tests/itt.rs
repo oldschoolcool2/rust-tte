@@ -117,6 +117,32 @@ fn e07_last_period_only() {
     assert_itt_fixture("edge", "E07_last_period_only");
 }
 
+// E04 re-entry: a re-entered eligible period seeds a new trial whose
+// assigned_treatment comes from the re-entry period (trials 0,1,3; assigned 0,0,1).
+#[test]
+fn e04_reentry() {
+    assert_itt_fixture("edge", "E04_reentry");
+}
+
+// E06 switch-then-back: ITT carries the 1->0->1 trajectory with no censoring
+// (assigned=1 frozen; treatment column 1,1,0,1). PP censoring is Phase 2.
+#[test]
+fn e06_switch_then_back() {
+    assert_itt_fixture("edge", "E06_switch_then_back");
+}
+
+// E08 ties: a terminal event recorded across all three overlapping trials.
+#[test]
+fn e08_ties() {
+    assert_itt_fixture("edge", "E08_ties");
+}
+
+// E09 max fan-out: 31 eligible periods -> 496 rows (31*32/2), the row-count invariant.
+#[test]
+fn e09_max_fanout() {
+    assert_itt_fixture("edge", "E09_max_fanout");
+}
+
 // ---- Simulated scenario cohorts (events + censoring + switching). ----
 
 #[test]

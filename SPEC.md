@@ -52,7 +52,16 @@ Let the input be long person-time, one row per `(id, period)`.
 
 1. **Seeds.** A `(id, period)` row *seeds an emulated trial* iff `eligible == 1`
    and `first_period ≤ period ≤ last_period`. Its `trial_period := period`
-   (as Int32) and its `assigned_treatment := treatment` (the baseline treatment).
+   (as Int32) and its `assigned_treatment := treatment` **at that very period**.
+   Eligibility is time-varying and evaluated every period: a patient eligible at
+   several periods seeds several trials, and `assigned_treatment` is sourced from
+   `treatment` at each trial's own `trial_period` — **never** frozen from the first
+   eligible period. This is the property that makes re-entry (eligible → ineligible
+   → eligible) correct: the re-entered trial takes its assignment from the re-entry
+   period (cf. `fixtures/edge/expected_E04_reentry_itt.parquet`, where trials seed
+   at periods 0, 1, 3 with `assigned_treatment` 0, 0, **1**). Collapsing repeated
+   eligibility to a single time zero is the immortal-time / alignment failure that
+   Fu et al. (*BMJ* 2026;392:e084909) warn against.
 2. **Follow-up.** For each seed, emit one output row for **every** observed
    `(id, p)` of the same patient with `p ≥ trial_period` (a self-join on `id`
    restricted to `p ≥ trial_period`). On each such row:
@@ -83,6 +92,15 @@ defaults `0 … i32::MAX` are a no-op filter for cohorts that start at period 0)
 > (a) PP `data_preparation` errors inside `glm` on degenerate single-row inputs
 > (e.g. E01); (b) the scenario `validate_input()` uses `data.table` `by=` on a
 > plain `data.frame`. Phase 1 therefore ships **ITT-only** fixtures.
+>
+> First-deviation-only is the package's documented rule — the IPW manuscript
+> (arXiv:2402.12083) discards "the data after [the enrollee] started the treatment"
+> and emits the expand indicator "up until first switch"; a switch *back* must
+> **not** resume follow-up (cf. `E06`, trajectory 1→1→0→1: PP terminates at the
+> first deviation, so `followup_time == 3` does not appear). When PP fixtures are
+> generated (Phase 2) prefer the S4 `trial_sequence("PP") |> … |> expand_trials()`
+> path, which does the structural expansion **without** fitting the switch-weight
+> `glm`, sidestepping caveat (a) on degenerate cohorts.
 
 ## 4. Weight application — Phase 3
 
@@ -102,6 +120,10 @@ For any valid input, the expanded frame must satisfy:
   `period = trial_period + followup_time`.
 - **Constant assignment.** `assigned_treatment` is constant within
   `(id, trial_period)`.
+- **Assignment source.** `assigned_treatment` for `(id, trial_period)` equals the
+  input `treatment` at `period == trial_period` — re-entered trials take assignment
+  from the re-entry period, not the first eligible period. (Property test:
+  `invariant_assigned_treatment_sourced_from_trial_period`.)
 - **(PP, Phase 2) monotone censoring.** Once a PP trial is censored, no later
   `followup_time` rows exist for that `(id, trial_period)`.
 
