@@ -34,6 +34,14 @@ const COL_TRIAL_PERIOD: &str = "trial_period";
 const COL_FOLLOWUP_TIME: &str = "followup_time";
 /// Output column: treatment at the trial baseline, carried forward (ITT).
 const COL_ASSIGNED_TREATMENT: &str = "assigned_treatment";
+/// Output column (Phase 3): the per-row inverse-probability weight.
+const COL_WEIGHT: &str = "weight";
+/// Join column: each follow-up row's calendar period (`trial_period +
+/// followup_time`), used to attach the per-`(id, period)` weight factor.
+const COL_PERIOD: &str = "period";
+/// Factor-table column: the pre-computed per-`(id, period)` IPW multiplier the
+/// engine joins and then accumulates (see [`apply_weights`]).
+const COL_WEIGHT_FACTOR: &str = "weight_factor";
 
 /// Causal estimand selecting whether follow-up is artificially censored at the
 /// first treatment deviation.
@@ -307,6 +315,130 @@ pub fn expand_parquet(
     Ok(())
 }
 
+/// Apply pre-computed inverse-probability weights to a structural expansion.
+///
+/// `expanded` is the six structural columns produced by [`expand`]; `factors` is
+/// the per-`(id, period)` IPW factor table emitted by the Oracle, with columns
+/// `id`, `period` and `weight_factor`. The per-row `weight` is the **cumulative
+/// product**, within each `(id, trial_period)` ordered by `followup_time`, of the
+/// factor joined on `(id, period := trial_period + followup_time)`, with the
+/// baseline (`followup_time == 0`) multiplier forced to `1.0` (SPEC §4). The
+/// estimand selects the *weight model* upstream (in R) but not this arithmetic —
+/// join + cumulative product is identical for ITT and per-protocol.
+///
+/// The returned frame is the six structural columns followed by `weight`
+/// (Float64), sorted by `(id, trial_period, followup_time)`. Weight *values* come
+/// from R; the engine only reproduces their deterministic accumulation, so the
+/// structural columns match the Oracle exactly while `weight` matches within the
+/// harness's float tolerance (ADR-2).
+///
+/// # Errors
+/// Returns [`ExpandError`] if a Polars operation fails (e.g. the window
+/// evaluation or the join cannot be planned).
+pub fn apply_weights(
+    expanded: LazyFrame,
+    factors: LazyFrame,
+    options: &ExpandOptions,
+) -> Result<LazyFrame> {
+    // Internal column holding the per-row multiplier before it is accumulated.
+    const COL_MULT: &str = "__tte_weight_multiplier";
+
+    let id = options.id_col.as_str();
+    let treatment = options.treatment_col.as_str();
+    let outcome = options.outcome_col.as_str();
+
+    // Each follow-up row's calendar period is the factor-table join key. Both
+    // `trial_period` and `followup_time` are integer, so the sum is integer; cast
+    // to Int32 to match the factor table's `period` dtype exactly.
+    let with_period = expanded.with_column(
+        (col(COL_TRIAL_PERIOD) + col(COL_FOLLOWUP_TIME))
+            .cast(DataType::Int32)
+            .alias(COL_PERIOD),
+    );
+
+    // Per-row multiplier: 1.0 at the trial baseline (it accrues no weight), else
+    // the joined per-`(id, period)` factor. A missing factor on a follow-up row
+    // would surface as a null `weight` (a loud failure), never a silent 1.0.
+    let multiplier = when(col(COL_FOLLOWUP_TIME).eq(lit(0i32)))
+        .then(lit(1.0))
+        .otherwise(col(COL_WEIGHT_FACTOR))
+        .alias(COL_MULT);
+
+    // `weight` is the cumulative product of the multiplier within each trial,
+    // ordered explicitly by `followup_time` so it is independent of physical row
+    // order (determinism) — the `cum_prod` analogue of the per-protocol `cum_max`.
+    let weight = col(COL_MULT)
+        .cum_prod(false)
+        .over_with_options(
+            Some(vec![col(id), col(COL_TRIAL_PERIOD)]),
+            Some((vec![col(COL_FOLLOWUP_TIME)], SortOptions::default())),
+            WindowMapping::default(),
+        )?
+        .cast(DataType::Float64)
+        .alias(COL_WEIGHT);
+
+    let weighted = with_period
+        .join(
+            factors,
+            [col(id), col(COL_PERIOD)],
+            [col(id), col(COL_PERIOD)],
+            JoinArgs::new(JoinType::Left),
+        )
+        .with_column(multiplier)
+        .with_column(weight)
+        .select([
+            col(id),
+            col(COL_TRIAL_PERIOD),
+            col(COL_FOLLOWUP_TIME),
+            col(COL_ASSIGNED_TREATMENT),
+            col(treatment),
+            col(outcome),
+            col(COL_WEIGHT),
+        ])
+        // (id, trial_period, followup_time) is a unique key — total, deterministic.
+        .sort_by_exprs(
+            [col(id), col(COL_TRIAL_PERIOD), col(COL_FOLLOWUP_TIME)],
+            SortMultipleOptions::default()
+                .with_order_descending(false)
+                .with_maintain_order(true),
+        );
+
+    Ok(weighted)
+}
+
+/// Expand `input_path` and attach pre-computed weights, writing the result.
+///
+/// Reads the structural input, expands it under `options.estimand`, joins the
+/// per-`(id, period)` factors from `factors_path`, and writes the weighted frame
+/// (six structural columns + `weight`) to `output_path`. This is [`expand`]
+/// followed by [`apply_weights`]; see the latter for the weighting rule.
+///
+/// # Errors
+/// Returns [`ExpandError`] if reading/writing fails, a path is not valid UTF-8,
+/// `options` are invalid, or a Polars operation fails.
+pub fn expand_weighted_parquet(
+    input_path: impl AsRef<Path>,
+    factors_path: impl AsRef<Path>,
+    output_path: impl AsRef<Path>,
+    options: &ExpandOptions,
+) -> Result<()> {
+    let input_str = input_path
+        .as_ref()
+        .to_str()
+        .ok_or_else(|| ExpandError::InvalidOptions("input path is not valid UTF-8".to_owned()))?;
+    let factors_str = factors_path
+        .as_ref()
+        .to_str()
+        .ok_or_else(|| ExpandError::InvalidOptions("factors path is not valid UTF-8".to_owned()))?;
+    let input = LazyFrame::scan_parquet(PlRefPath::new(input_str), ScanArgsParquet::default())?;
+    let factors = LazyFrame::scan_parquet(PlRefPath::new(factors_str), ScanArgsParquet::default())?;
+    let expanded = expand(input, options)?;
+    let mut frame = apply_weights(expanded, factors, options)?.collect()?;
+    let mut file = std::fs::File::create(output_path)?;
+    ParquetWriter::new(&mut file).finish(&mut frame)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     //! In-crate fixture verification. These tests load the Oracle Parquet
@@ -315,7 +447,7 @@ mod tests {
     //! `tests/itt.rs`; this module is the engine's co-located regression net.
     use std::path::{Path, PathBuf};
 
-    use super::{Estimand, ExpandOptions, expand, expand_parquet};
+    use super::{Estimand, ExpandOptions, apply_weights, expand, expand_parquet};
     use polars::prelude::*;
 
     /// Resolve a path under the repo-root `fixtures/` directory.
@@ -332,6 +464,30 @@ mod tests {
             .expect("scan fixture")
             .collect()
             .expect("collect fixture")
+    }
+
+    /// Read a column as `i64` (casting), null-free — for invariant checks.
+    fn col_i64(df: &DataFrame, name: &str) -> Vec<i64> {
+        df.column(name)
+            .expect("column")
+            .cast(&DataType::Int64)
+            .expect("cast i64")
+            .i64()
+            .expect("i64")
+            .into_no_null_iter()
+            .collect()
+    }
+
+    /// Read a column as `f64` (casting), null-free — for invariant checks.
+    fn col_f64(df: &DataFrame, name: &str) -> Vec<f64> {
+        df.column(name)
+            .expect("column")
+            .cast(&DataType::Float64)
+            .expect("cast f64")
+            .f64()
+            .expect("f64")
+            .into_no_null_iter()
+            .collect()
     }
 
     /// Expand `fixtures/<subdir>/input_<name>.parquet` and assert it equals
@@ -779,16 +935,6 @@ mod tests {
         // or after the first deviation (so a switch-back never resumes). This is
         // derived from the input fixtures alone, independent of the PP expected
         // fixtures, so it stands as a true invariant rather than a tautology.
-        fn col_i64(df: &DataFrame, name: &str) -> Vec<i64> {
-            df.column(name)
-                .expect("column")
-                .cast(&DataType::Int64)
-                .expect("cast i64")
-                .i64()
-                .expect("i64")
-                .into_no_null_iter()
-                .collect()
-        }
         // (id, trial_period) -> rows (followup_time, treatment, assigned), in the
         // engine's canonical followup_time order.
         fn grouped(df: &DataFrame) -> std::collections::BTreeMap<(i64, i64), Vec<(i64, i64, i64)>> {
@@ -885,5 +1031,118 @@ mod tests {
             vec![0, 1],
             "E06 PP must keep exactly followup_time 0 and 1 (switch-back at fu=3 excluded)"
         );
+    }
+
+    #[test]
+    fn invariant_weight_cumulative_product() {
+        // SPEC §5 (Weighted): once weights are applied, (a) every baseline row
+        // has weight == 1.0, (b) weight > 0 everywhere, (c) the per-(id, period)
+        // factor recovered as weight[t]/weight[t-1] is invariant across the
+        // overlapping trials that share an (id, period) — i.e. the engine applied
+        // a per-(id, period) multiplier, not a per-trial one — and (d) the six
+        // structural columns are byte-identical to the unweighted expansion (the
+        // weighting only appends `weight`). Checked on high_switching (many
+        // overlapping trials) and data_censored (combined switch + censor).
+        use std::collections::BTreeMap;
+
+        for (subdir, name) in [
+            ("scenarios", "high_switching"),
+            ("weights", "data_censored"),
+        ] {
+            let input = fixture(&format!("{subdir}/input_{name}.parquet"));
+            let factors_path = fixture(&format!("weights/input_{name}_pp_weights.parquet"));
+            let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX)
+                .with_estimand(Estimand::PerProtocol);
+            let scan = |p: &Path| {
+                LazyFrame::scan_parquet(
+                    PlRefPath::new(p.to_str().expect("utf8")),
+                    ScanArgsParquet::default(),
+                )
+                .expect("scan")
+            };
+            let structural = expand(scan(&input), &opts)
+                .expect("expand")
+                .collect()
+                .expect("collect structural");
+            let weighted = apply_weights(
+                expand(scan(&input), &opts).expect("expand"),
+                scan(&factors_path),
+                &opts,
+            )
+            .expect("apply_weights")
+            .collect()
+            .expect("collect weighted");
+
+            // (d) structural columns unchanged; `weight` appended as the 7th.
+            assert_eq!(
+                weighted.width(),
+                7,
+                "[{name}] weighted frame must be the 6 structural columns + weight"
+            );
+            for c in [
+                "id",
+                "trial_period",
+                "followup_time",
+                "assigned_treatment",
+                "treatment",
+                "outcome",
+            ] {
+                assert!(
+                    weighted
+                        .column(c)
+                        .expect("weighted column")
+                        .equals(structural.column(c).expect("structural column")),
+                    "[{name}] structural column '{c}' changed under weighting"
+                );
+            }
+
+            let id = col_i64(&weighted, "id");
+            let tp = col_i64(&weighted, "trial_period");
+            let fu = col_i64(&weighted, "followup_time");
+            let w = col_f64(&weighted, "weight");
+
+            // (a) baseline weight == 1.0; (b) weight > 0 everywhere.
+            for ((&fu_i, &w_i), _) in fu.iter().zip(&w).zip(&id) {
+                assert!(w_i > 0.0, "[{name}] non-positive weight {w_i}");
+                if fu_i == 0 {
+                    assert!(
+                        (w_i - 1.0).abs() < 1e-12,
+                        "[{name}] baseline weight {w_i} != 1.0"
+                    );
+                }
+            }
+
+            // (c) per-(id, period) factor invariance across overlapping trials.
+            // Rows are sorted by (id, trial_period, followup_time), so the prior
+            // row of the same trial is the previous follow-up — its weight is the
+            // denominator of the incremental factor.
+            let mut last: BTreeMap<(i64, i64), f64> = BTreeMap::new();
+            let mut factor_of: BTreeMap<(i64, i64), f64> = BTreeMap::new();
+            let mut checked = 0usize;
+            for (((&id_i, &tp_i), &fu_i), &w_i) in id.iter().zip(&tp).zip(&fu).zip(&w) {
+                if fu_i > 0 {
+                    let prev = last
+                        .get(&(id_i, tp_i))
+                        .copied()
+                        .expect("previous follow-up row in trial");
+                    let factor = w_i / prev;
+                    let period = tp_i + fu_i;
+                    if let Some(&seen) = factor_of.get(&(id_i, period)) {
+                        assert!(
+                            (factor - seen).abs() <= 1e-9 * seen.abs().max(1.0),
+                            "[{name}] factor at (id {id_i}, period {period}) varies across trials: {factor} vs {seen}"
+                        );
+                        checked += 1;
+                    } else {
+                        factor_of.insert((id_i, period), factor);
+                    }
+                }
+                last.insert((id_i, tp_i), w_i);
+            }
+            assert!(
+                checked > 0,
+                "[{name}] expected overlapping trials sharing an (id, period) cell"
+            );
+        }
     }
 }
