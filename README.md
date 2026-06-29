@@ -116,7 +116,8 @@ cargo clippy --all-targets --all-features
 ```
 
 > **Toolchain & lockfiles.** The toolchain is pinned via
-> [`rust-toolchain.toml`](rust-toolchain.toml) (1.95.0; MSRV 1.88). `Cargo.lock`
+> [`rust-toolchain.toml`](rust-toolchain.toml) (1.95.0; MSRV 1.95 — Polars 0.54
+> requires the latest stable). `Cargo.lock`
 > (root) and `bindings/tters/src/rust/Cargo.lock` are committed, and CI runs every
 > cargo job with `--locked`. Polars is pinned to `0.54`.
 >

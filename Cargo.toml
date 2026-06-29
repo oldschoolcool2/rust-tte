@@ -10,12 +10,15 @@ exclude = ["bindings/tters"]
 
 [workspace.package]
 edition = "2024"
-# MSRV. Edition 2024 floors at 1.85, but the polars 0.54 dependency tree pulls
-# crates (simd-json, sysinfo) that require Rust 1.88 — so 1.88 is the real floor
-# (confirmed from the resolved Cargo.lock). DISTINCT from the pinned dev/CI
-# toolchain (rust-toolchain.toml = 1.95.0). Keep in sync with the MSRV CI job and
-# clippy.toml.
-rust-version = "1.88"
+# MSRV = 1.95, driven entirely by Polars 0.54.4: polars-core / polars-ooc use
+# stdlib features that only stabilized recently — `cold_path` + `atomic_try_update`
+# (1.95.0), `strict_overflow_ops` (1.91), array-length `_` / generic_arg_infer
+# (1.89). Nothing below 1.95 compiles the tree (verified by checking each
+# toolchain), so the MSRV equals the pinned dev/CI toolchain
+# (rust-toolchain.toml = 1.95.0). There is no separate low-MSRV CI job because one
+# is impossible here; the fmt/clippy/check/test jobs already run on 1.95.0 via the
+# toolchain file. Keep in sync with clippy.toml.
+rust-version = "1.95"
 license = "Apache-2.0"
 repository = "https://github.com/oldschoolcool2/rust-tte"
 authors = ["Michael Batech <oldschoolcool@gmail.com>"]

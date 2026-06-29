@@ -75,19 +75,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets --all-features --locked
 
-  msrv:
-    name: msrv (1.88.0)
-    runs-on: ubuntu-latest
-    # Force 1.88.0 via RUSTUP_TOOLCHAIN — otherwise rust-toolchain.toml (1.95.0)
-    # would shadow the dtolnay selection and this job would NOT verify the MSRV.
-    env:
-      RUSTUP_TOOLCHAIN: "1.88.0"
-    steps:
-      - uses: actions/checkout@v5
-      # Keep this pin in sync with [workspace.package] rust-version in Cargo.toml.
-      - uses: dtolnay/rust-toolchain@1.88.0
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --all-features --all-targets --locked
+  # NOTE: there is intentionally no separate low-MSRV job. Polars 0.54.4 requires
+  # the latest stable — it uses `cold_path` / `atomic_try_update` (stabilized in
+  # 1.95.0) — so MSRV == the pinned toolchain (rust-toolchain.toml = 1.95.0). The
+  # fmt/clippy/check/test jobs already run on 1.95.0 via the toolchain file, which
+  # verifies the MSRV. Keep `rust-version` in Cargo.toml aligned with that pin.
 
   deny:
     name: cargo-deny

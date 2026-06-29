@@ -68,9 +68,13 @@ Against the real, networked toolchain (Rust 1.95.0):
 
 - **Polars `0.54.4`** is the current stable (verified on crates.io) — the earlier
   offline guesses (`0.50` / `0.53`) were superseded.
-- **MSRV raised to `1.88`** (from the edition-2024 floor of 1.85): the Polars 0.54
-  dependency tree pulls crates (`simd-json`, `sysinfo`) that require Rust 1.88.
-  `rust-toolchain.toml`, `clippy.toml`, and the `msrv` CI job were aligned.
+- **MSRV = `1.95`**, driven entirely by Polars 0.54.4: its `polars-core` /
+  `polars-ooc` use stdlib features that only stabilized recently — `cold_path` /
+  `atomic_try_update` (1.95.0), `strict_overflow_ops` (1.91), array-length `_`
+  (1.89). Nothing below 1.95 compiles the tree (verified per toolchain 1.88→1.95),
+  so the MSRV equals the pinned dev toolchain. The dedicated low-MSRV CI job was
+  removed (one is impossible here); `clippy.toml` was aligned to 1.95.0. CI's
+  fmt/clippy/check/test jobs already run on 1.95.0 via the toolchain file.
 - **Polars feature set: `dtype-categorical` instead of `dtype-full`.** Enabling the
   temporal dtypes (`dtype-date`/`datetime`/`time`) activates a broken `Strptime`
   lowering arm in `polars-stream 0.54.4` that fails to compile (it references an

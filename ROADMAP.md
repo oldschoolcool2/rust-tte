@@ -37,7 +37,7 @@ statistical estimation.
 
 | Phase | Goal | Definition of Done |
 |---|---|---|
-| **0 — Scaffold** ✅ | Repo, tooling, Oracle, failing harness | **Done (2026-06-29).** Workspace compiles; `clippy -D warnings` / `fmt` / `test` green; lockfiles committed (Polars 0.54.4, MSRV 1.88). Fixture generation + `STRUCTURAL_COLS` freeze remain — see [Phase-0 summary](docs/002-phase-0-scaffold/001-phase-0-summary.md). |
+| **0 — Scaffold** ✅ | Repo, tooling, Oracle, failing harness | **Done (2026-06-29).** Workspace compiles; `clippy -D warnings` / `fmt` / `test` green; lockfiles committed (Polars 0.54.4, MSRV 1.95 — Polars requires latest stable). Fixture generation + `STRUCTURAL_COLS` freeze remain — see [Phase-0 summary](docs/002-phase-0-scaffold/001-phase-0-summary.md). |
 | **1 — ITT expansion** | `expand_itt()` | Bit-exact match on all ITT fixtures (cases 1–9) for the structural columns; property tests pass; `forbid(unsafe_code)` holds. |
 | **2 — Per-protocol censoring** | `expand_until_switch` deviation logic | Exact match on PP fixtures incl. the ITT-vs-PP divergence case; ITT path unchanged. |
 | **3 — Weight application** | Join + multiply pre-computed IPCW | Exact join; float product within 1e-12. (No solver — weights come from R.) |

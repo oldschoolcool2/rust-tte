@@ -4,8 +4,9 @@
 # https://doc.rust-lang.org/clippy/configuration.html
 
 # Clippy normally auto-reads MSRV from Cargo.toml `rust-version`. Pinned here for
-# the core crate; keep in sync with [workspace.package].rust-version = "1.88".
-msrv = "1.88.0"
+# the core crate; keep in sync with [workspace.package].rust-version = "1.95"
+# (driven by Polars 0.54.4, which requires the latest stable).
+msrv = "1.95.0"
 
 # Fresh crate: lint the full public surface.
 avoid-breaking-exported-api = false
