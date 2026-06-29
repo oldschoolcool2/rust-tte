@@ -1,15 +1,23 @@
 //! Intention-to-treat (ITT) expansion contract test against the R Oracle
-//! fixtures. This is currently a SKELETON: it is `#[ignore]`d because
-//! `tte_expand::expand_parquet` is an unimplemented stub. Remove `#[ignore]`
-//! once the engine lands.
+//! fixtures. The engine (`tte_expand::expand_parquet`) must reproduce the
+//! `TrialEmulation` expansion **bit-for-bit** on the six structural columns
+//! (`id, trial_period, followup_time, assigned_treatment, treatment, outcome`),
+//! including row count, row order, and per-column dtypes.
 //!
 //! Fixture naming follows the Oracle harness (`oracle/40_dump_fixtures.R`):
-//! `input_<case>.parquet` and `expected_<case>_<estimand>.parquet`, written
-//! under repo-root `fixtures/<subdir>/`. The case below is the floor edge case
-//! `E01_single` (one eligible patient, one period) from `oracle/30_edge_cases.R`.
+//! `input_<case>.parquet` and `expected_<case>_itt.parquet`, under repo-root
+//! `fixtures/<subdir>/`. Cases are ordered by graded difficulty (single →
+//! multi-trial → baseline event → never-treats → last-period → scenario cohorts).
+
+// Test scaffolding: the fixture helpers below assert via `expect()`. clippy.toml
+// already sets `allow-expect-in-tests`, but that only covers `#[test]` fns and
+// `#[cfg(test)]` modules — not an integration crate's free helper fns — so allow
+// it explicitly for this file.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use std::path::{Path, PathBuf};
 
+use polars::prelude::*;
 use tte_expand::{ExpandOptions, expand_parquet};
 
 /// Resolve a path under the repo-root `fixtures/` directory.
@@ -21,27 +29,132 @@ fn fixture(rel: &str) -> PathBuf {
         .join(rel)
 }
 
-#[test]
-#[ignore = "expansion engine not implemented yet; remove once tte_expand::expand_parquet lands"]
-fn itt_expansion_matches_oracle() {
-    let input = fixture("edge/input_E01_single.parquet");
-    let expected = fixture("edge/expected_E01_single_itt.parquet");
+fn read_parquet(path: &Path) -> DataFrame {
+    let s = path.to_str().expect("fixture path is valid UTF-8");
+    LazyFrame::scan_parquet(PlRefPath::new(s), ScanArgsParquet::default())
+        .expect("scan parquet")
+        .collect()
+        .expect("collect parquet")
+}
 
+/// Expand `input_<name>.parquet` via the public `expand_parquet` round-trip and
+/// assert the result equals `expected_<name>_itt.parquet` exactly.
+fn assert_itt_fixture(subdir: &str, name: &str) {
+    let input = fixture(&format!("{subdir}/input_{name}.parquet"));
+    let expected_path = fixture(&format!("{subdir}/expected_{name}_itt.parquet"));
     assert!(input.exists(), "missing input fixture: {}", input.display());
     assert!(
-        expected.exists(),
+        expected_path.exists(),
         "missing expected fixture: {}",
-        expected.display()
+        expected_path.display()
     );
 
-    let out_dir = Path::new(env!("CARGO_TARGET_TMPDIR"));
-    let out = out_dir.join("itt_actual.parquet");
-
+    let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("itt_{name}.parquet"));
     let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX);
     expand_parquet(&input, &out, &opts).expect("expansion should succeed");
 
-    // TODO(engine): load `out` and `expected` with Polars and assert a
-    // dtype-exact frame equality (schema + values + categorical mapping) on the
-    // structural columns id/trial_period/followup_time/assigned_treatment/
-    // treatment/outcome once the expansion engine is implemented.
+    let actual = read_parquet(&out);
+    let expected = read_parquet(&expected_path);
+
+    // Schema: column names AND dtypes, in order — bit-exactness lives here.
+    assert_eq!(
+        actual.get_column_names(),
+        expected.get_column_names(),
+        "[{name}] column names/order differ"
+    );
+    assert_eq!(
+        actual.dtypes(),
+        expected.dtypes(),
+        "[{name}] dtypes differ\n  actual:   {:?}\n  expected: {:?}",
+        actual.dtypes(),
+        expected.dtypes()
+    );
+    assert_eq!(
+        actual.height(),
+        expected.height(),
+        "[{name}] row count differs: actual {} vs expected {}",
+        actual.height(),
+        expected.height()
+    );
+
+    // Values: per-column exact equality with a readable row-level diff.
+    for col_name in expected.get_column_names() {
+        let a = actual.column(col_name).expect("actual column");
+        let e = expected.column(col_name).expect("expected column");
+        assert!(
+            a.equals(e),
+            "[{name}] column '{col_name}' differs\n--- actual (head 20) ---\n{}\n--- expected (head 20) ---\n{}",
+            actual.head(Some(20)),
+            expected.head(Some(20))
+        );
+    }
+}
+
+// ---- Edge battery (graded difficulty). ----
+
+#[test]
+fn e01_single_patient_single_period() {
+    assert_itt_fixture("edge", "E01_single");
+}
+
+#[test]
+fn e02_id4_canonical_multi_trial() {
+    assert_itt_fixture("edge", "E02_id4_canonical");
+}
+
+#[test]
+fn e03_event_at_baseline() {
+    assert_itt_fixture("edge", "E03_event_at_baseline");
+}
+
+#[test]
+fn e05_never_treats() {
+    assert_itt_fixture("edge", "E05_never_treats");
+}
+
+#[test]
+fn e07_last_period_only() {
+    assert_itt_fixture("edge", "E07_last_period_only");
+}
+
+// ---- Simulated scenario cohorts (events + censoring + switching). ----
+
+#[test]
+fn scenario_common() {
+    assert_itt_fixture("scenarios", "common");
+}
+
+#[test]
+fn scenario_rare_event() {
+    assert_itt_fixture("scenarios", "rare_event");
+}
+
+#[test]
+fn scenario_ultra_rare_event() {
+    assert_itt_fixture("scenarios", "ultra_rare_event");
+}
+
+#[test]
+fn scenario_rare_initiation() {
+    assert_itt_fixture("scenarios", "rare_initiation");
+}
+
+#[test]
+fn scenario_high_switching() {
+    assert_itt_fixture("scenarios", "high_switching");
+}
+
+#[test]
+fn scenario_heavy_censoring() {
+    assert_itt_fixture("scenarios", "heavy_censoring");
+}
+
+#[test]
+fn scenario_short_followup() {
+    assert_itt_fixture("scenarios", "short_followup");
+}
+
+#[test]
+fn scenario_strong_confounding() {
+    assert_itt_fixture("scenarios", "strong_confounding");
 }
