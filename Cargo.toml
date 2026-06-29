@@ -28,7 +28,7 @@ authors = ["Michael Batech <oldschoolcool@gmail.com>"]
 # recent toolchains). The explicit dtype-full + cum/is_in features back the
 # dtype-exact, deterministic expansion engine. Features will grow as the engine
 # is implemented (e.g. global string cache for cross-frame categorical equality).
-polars = { version = "0.50", default-features = false, features = [
+polars = { version = "0.54", default-features = false, features = [
     "lazy",
     "streaming",
     "parquet",
