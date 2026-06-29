@@ -1,0 +1,13 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^src/rust/target$
+^src/rust/\.cargo$
+^src/\.cargo$
+^src/Makevars$
+^src/Makevars\.win$
+^\.github$
+^bench$
+^report$
+^docs$
+^LICENSE\.md$
+

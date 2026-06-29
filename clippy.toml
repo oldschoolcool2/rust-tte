@@ -1,0 +1,22 @@
+# clippy.toml: TUNABLE THRESHOLDS and per-context relaxations only.
+# Lint LEVELS live in [workspace.lints] in Cargo.toml. Unknown keys here make
+# clippy ERROR, so keep to documented options:
+# https://doc.rust-lang.org/clippy/configuration.html
+
+# Clippy normally auto-reads MSRV from Cargo.toml `rust-version`. Pinned here for
+# the core crate; keep in sync with [workspace.package].rust-version = "1.85".
+msrv = "1.85.0"
+
+# Fresh crate: lint the full public surface.
+avoid-breaking-exported-api = false
+
+# Tests legitimately unwrap/expect/panic/dbg while asserting against fixtures.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-dbg-in-tests = true
+
+# An expansion/row-builder engine has wide signatures and rich Polars types.
+too-many-arguments-threshold = 8
+type-complexity-threshold = 300
+

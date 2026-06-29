@@ -1,0 +1,96 @@
+[workspace]
+resolver = "3"
+members = ["crates/tte-expand"]
+# The R binding's Rust crate (bindings/tters/src/rust/Cargo.toml) declares an
+# empty `[workspace]` table, making it its OWN workspace root. That is required
+# so `R CMD INSTALL` builds a self-contained crate with its own Cargo.lock and
+# the package can be `cargo vendor`ed for CRAN. It is therefore deliberately NOT
+# a member here, and is excluded so cargo never tries to absorb it.
+exclude = ["bindings/tters"]
+
+[workspace.package]
+edition = "2024"
+# MSRV: floor for edition 2024. DISTINCT from the pinned dev/CI toolchain
+# (rust-toolchain.toml = 1.95.0). Keep this in sync with the MSRV CI job.
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/oldschoolcool2/rust-tte"
+authors = ["Michael Batech <oldschoolcool@gmail.com>"]
+
+[workspace.dependencies]
+# Polars pin. 0.50 is the most recent version CONFIRMED available via context7 at
+# scaffold time (2026-06); a web check during research suggested 0.53 may be
+# newer. Resolve this on the first `cargo build` (which has network) and bump to
+# the latest stable, then commit the refreshed Cargo.lock.
+#
+# default-features = false keeps the build off the nightly `simd` feature
+# (pola-rs#26348: portable_simd LaneCount removal breaks `simd`/`nightly` on
+# recent toolchains). The explicit dtype-full + cum/is_in features back the
+# dtype-exact, deterministic expansion engine. Features will grow as the engine
+# is implemented (e.g. global string cache for cross-frame categorical equality).
+polars = { version = "0.50", default-features = false, features = [
+    "lazy",
+    "streaming",
+    "parquet",
+    "dtype-full",
+    "is_in",
+    "round_series",
+    "cum_agg",
+] }
+thiserror = "2.0"
+
+# Perf tuning for the release/bench profile of a data-expansion engine. panic is
+# intentionally left at the default "unwind" so criterion benches and any FFI
+# caller can unwind across the boundary.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# --- Lint LEVELS (members opt in via `[lints] workspace = true`) -------------
+[workspace.lints.rust]
+unsafe_code = "forbid"            # belt-and-suspenders with #![forbid(unsafe_code)]
+missing_docs = "warn"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+redundant_lifetimes = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+# Groups at priority -1 so the specific overrides below win.
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Determinism / numeric-exactness hardening (the bit-for-bit invariant).
+float_cmp = "deny"
+float_cmp_const = "deny"
+lossy_float_literal = "deny"
+cast_possible_truncation = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "warn"
+
+# Panic hygiene in library code (relaxed for tests via clippy.toml).
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+indexing_slicing = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+
+# Docs completeness for a published, verified crate.
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+
+# Tame noisy pedantic/nursery/cargo lints that fight idiomatic Polars code.
+# `multiple_crate_versions` MUST be allowed: Polars' transitive tree carries
+# duplicate versions, and clippy::cargo would otherwise fail `-D warnings` CI.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_const_for_fn = "allow"
+option_if_let_else = "allow"
+multiple_crate_versions = "allow"

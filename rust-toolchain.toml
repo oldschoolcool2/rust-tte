@@ -1,0 +1,15 @@
+# Pins the EXACT toolchain for development, CI, and the reproducibility
+# certificate. rustup reads this on the first `cargo`/`rustc` invocation in the
+# repo and auto-installs the channel + components.
+#
+# This is the DEV/CI toolchain, NOT the MSRV. MSRV is declared separately via
+# `rust-version` in Cargo.toml (= 1.85). To bump, edit `channel` in one commit.
+# Latest stable as of 2026-06 is 1.95.0.
+
+[toolchain]
+channel = "1.95.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+# Uncomment if you cross-compile or ship the R binding for other hosts:
+# targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]
+

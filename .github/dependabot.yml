@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Rust dependencies for the root workspace (crates/tte-expand).
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+
+  # The R binding's Rust crate is a SEPARATE workspace with its own Cargo.lock.
+  - package-ecosystem: cargo
+    directory: "/bindings/tters/src/rust"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      tters-cargo-minor-patch:
+        update-types: [minor, patch]
+
+  # Keep pinned GitHub Actions current (scans .github/workflows/*).
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        update-types: [minor, patch, major]
+

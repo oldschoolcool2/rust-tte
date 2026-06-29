@@ -1,0 +1,36 @@
+[package]
+name = "tters"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.71"
+publish = false
+
+[lib]
+name = "tters"
+crate-type = ["rlib", "staticlib"]
+
+[[bin]]
+name = "document"
+path = "document.rs"
+bench = false
+
+[dependencies]
+extendr-api = "0.9"
+# Path dependency on the verified core crate. Relative to THIS Cargo.toml
+# (bindings/tters/src/rust/): four levels up reaches the repo root, then
+# crates/tte-expand.
+tte-expand = { path = "../../../../crates/tte-expand" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+# NOTE: do NOT set panic = "abort". extendr turns Rust panics into R errors via
+# catch_unwind, which requires the default unwind strategy.
+
+# Empty [workspace] table => this crate is its OWN workspace root, detached from
+# the repo-root workspace. `R CMD INSTALL` (cargo build --manifest-path=rust/
+# Cargo.toml) then builds a self-contained crate with its own Cargo.lock
+# (commit src/rust/Cargo.lock). The path dependency above still resolves in the
+# monorepo. This MUST stay consistent with `exclude` in the root Cargo.toml.
+[workspace]
+

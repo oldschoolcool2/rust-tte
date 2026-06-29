@@ -1,0 +1,70 @@
+# cargo-deny configuration -- https://embarkstudios.github.io/cargo-deny/
+# Validated against cargo-deny 0.18+/0.19 (2026). Run: `cargo deny check`.
+# The legacy license keys (copyleft/default/unlicensed/allow-osi-fsf-free) and
+# advisory keys (vulnerability/notice/severity-threshold/version) were REMOVED
+# and now hard-error. Everything is denied by default; opt in via allow/ignore.
+
+[graph]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+all-features = true
+
+[output]
+feature-depth = 1
+
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+maximum-db-staleness = "P14D"
+yanked = "deny"
+unmaintained = "workspace"
+ignore = [
+    # { id = "RUSTSEC-0000-0000", reason = "why acceptable; tracking link" },
+]
+
+[licenses]
+confidence-threshold = 0.93
+# Allow-list only (SPDX). Covers the typical Polars + Arrow + Apache-2.0 tree.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "BSL-1.0",
+    "CC0-1.0",
+    "MPL-2.0",
+]
+exceptions = [
+    # { allow = ["OpenSSL"], crate = "ring" },
+]
+
+# Skip license checks for our own unpublished workspace crates.
+[licenses.private]
+ignore = true
+
+[bans]
+# Polars pulls a wide tree; duplicate versions are common -> warn, don't fail.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true   # intra-workspace path deps may use `*`
+deny = [
+    # { crate = "openssl", reason = "prefer rustls" },
+]
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+

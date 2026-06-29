@@ -1,0 +1,36 @@
+# Normalize line endings: LF in the repo for all text.
+* text=auto eol=lf
+
+# Explicit text types (LF).
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+*.R     text eol=lf
+*.r     text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+*.def   text eol=lf
+
+# R-package build scripts MUST stay LF (R CMD INSTALL runs them with /bin/sh).
+bindings/tters/configure        text eol=lf
+bindings/tters/configure.win    text eol=lf
+bindings/tters/cleanup          text eol=lf
+bindings/tters/cleanup.win      text eol=lf
+bindings/tters/src/Makevars.in      text eol=lf
+bindings/tters/src/Makevars.win.in  text eol=lf
+
+# Binary / non-diffable assets.
+*.parquet binary
+*.png     binary
+*.jpg     binary
+*.xz      binary
+*.gz      binary
+*.tar.xz  binary
+fixtures/** -text -diff
+
+# Linguist hints: keep generated/vendored code out of language stats.
+bindings/tters/R/extendr-wrappers.R linguist-generated=true
+oracle/**                           linguist-vendored=true
+fixtures/**                         linguist-generated=true
+Cargo.lock                          linguist-generated=true
+

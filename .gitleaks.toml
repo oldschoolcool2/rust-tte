@@ -1,0 +1,35 @@
+# Gitleaks configuration
+# Extends the upstream default ruleset with project-specific allowlists.
+# Read automatically from the repo root by the pre-commit hook and the CI scan
+# (.github/workflows/ci.yml). Docs: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-wide allowlist for fixtures, oracle, docs, and generated files"
+
+paths = [
+  # Immutable Parquet ground truth — binary trial-emulation data, no secrets.
+  # Scanning it only produces high-entropy false positives.
+  '''fixtures/.*''',
+  # R Oracle reference implementation and its renv library.
+  '''oracle/.*''',
+  # Design docs and agent rules.
+  '''docs/.*''',
+  '''\.claude/.*''',
+  # Rust test harness (uses fixtures, not real credentials).
+  '''.*/tests/.*''',
+  # Committed lockfiles routinely contain high-entropy hashes.
+  '''Cargo\.lock''',
+  '''.*/Cargo\.lock''',
+  '''.*renv\.lock''',
+]
+
+regexes = [
+  # AWS docs canonical example access key (appears in tutorials / .env.example).
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
+  # Example JWT prefix used in OpenAPI / tutorials.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\..*''',
+]

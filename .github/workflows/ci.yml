@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same branch/PR (saves CI minutes).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: CI only needs to read the repository.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0        # smaller, more cacheable CI builds
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: "-D warnings"    # deny warnings in every compiled job
+  RUSTDOCFLAGS: "-D warnings" # ...and in doctests / rustdoc
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+  test:
+    name: test (${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+    # rust-toolchain.toml pins 1.95.0, and rustup honors that file ABOVE the
+    # toolchain the action selects. Force the matrix toolchain via RUSTUP_TOOLCHAIN
+    # (env beats the toolchain file in rustup's precedence) so this job genuinely
+    # tests stable AND beta instead of silently running 1.95.0 for both.
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, beta]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+      # --all-targets does NOT run doctests, so run them in a second pass.
+      - run: cargo test --workspace --all-features --all-targets --locked
+      - run: cargo test --workspace --all-features --doc --locked
+
+  check:
+    name: check (all targets / all features)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-targets --all-features --locked
+
+  msrv:
+    name: msrv (1.85.0)
+    runs-on: ubuntu-latest
+    # Force 1.85.0 via RUSTUP_TOOLCHAIN — otherwise rust-toolchain.toml (1.95.0)
+    # would shadow the dtolnay selection and this job would NOT verify the MSRV.
+    env:
+      RUSTUP_TOOLCHAIN: "1.85.0"
+    steps:
+      - uses: actions/checkout@v5
+      # Keep this pin in sync with [workspace.package] rust-version in Cargo.toml.
+      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-features --all-targets --locked
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - run: cargo deny --all-features check
+

@@ -1,0 +1,18 @@
+# markdownlint-cli2 options. Lint RULES live in .markdownlint.yaml (auto-discovered
+# and merged in). This file holds cli2-only options, because markdownlint-cli2 does
+# NOT honor .markdownlintignore — ignores must be declared here.
+globs:
+  - "**/*.md"
+
+ignores:
+  - ".claude/**" # AI rule/skill/command files — not user-facing docs
+  - "**/target/**"
+  - "tmp/**"
+  - "node_modules/**"
+  - "oracle/renv/**"
+  - "bindings/tters/src/rust/target/**"
+  - "LICENSE"
+  - "NOTICE"
+
+# Also respect .gitignore (covers /target, tmp/, renv library, etc.).
+gitignore: true

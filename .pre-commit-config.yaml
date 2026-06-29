@@ -1,0 +1,82 @@
+# Pre-commit hooks — local mirror of the CI gates so a clean commit passes CI.
+# Setup:  pipx install pre-commit  (or: uv tool install pre-commit)
+#         pre-commit install && pre-commit install --hook-type commit-msg
+# Run:    pre-commit run --all-files
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  # Secret scanning — mirrors .github/workflows/secret-scan.yml. Same gitleaks
+  # version + .gitleaks.toml ruleset, so a clean local commit passes the CI scan.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+        exclude: ^fixtures/ # Parquet ground truth is intentionally committed
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md] # preserve markdown hard line breaks
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+
+  # Markdown lint — mirrors .github/workflows/markdownlint.yml.
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.22.1
+    hooks:
+      - id: markdownlint-cli2
+
+  # YAML lint. Skips .github/workflows — GitHub Actions' `on:` is a legitimate
+  # truthy key that the .yamllint.yaml truthy rule would otherwise reject.
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint.yaml]
+        exclude: ^\.github/workflows/
+
+  # Keep the Claude hook scripts formatted (honors .editorconfig: 4-space).
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.10.0-2
+    hooks:
+      - id: shfmt
+
+  - repo: local
+    hooks:
+      # Entries use YAML block scalars (|) so the embedded shell quoting and `: `
+      # sequences don't confuse the YAML parser.
+      - id: shellcheck
+        name: shellcheck shell scripts
+        language: system
+        files: \.sh$
+        types: [file]
+        entry: |
+          bash -c 'if command -v shellcheck >/dev/null 2>&1; then shellcheck "$@"; else echo "shellcheck not installed - skipping"; fi' --
+
+      # Rust format gate. Graceful when the toolchain is absent locally; CI
+      # (cargo fmt --all --check) is the source of truth.
+      - id: cargo-fmt
+        name: cargo fmt --all --check
+        language: system
+        pass_filenames: false
+        files: \.rs$
+        entry: |
+          bash -c 'if command -v cargo >/dev/null 2>&1; then cargo fmt --all --check; else echo "cargo not installed - skipping (CI enforces fmt)"; fi'
+
+      # Conventional commit message — no Node/commitlint dependency.
+      - id: conventional-commit
+        name: conventional commit message
+        language: system
+        stages: [commit-msg]
+        entry: |
+          bash -c 'msg=$(head -1 "$1"); printf "%s" "$msg" | grep -qE "^(Merge |Revert |fixup! |squash! |(feat|fix|chore|docs|refactor|test|perf|ci|build|style|revert)(\([a-z0-9 ._-]+\))?!?: .+)" || { echo "Commit must be Conventional, e.g. feat(scope): summary [types: feat fix chore docs refactor test perf ci build style revert]"; exit 1; }' --

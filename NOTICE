@@ -1,0 +1,25 @@
+tte-expand
+Copyright 2026 The tte-expand authors
+
+This product includes software developed as a verified, high-performance Rust
+backend for the data-expansion stage of sequential target trial emulation.
+
+--------------------------------------------------------------------------------
+Attribution
+--------------------------------------------------------------------------------
+
+This project reproduces, and validates bit-for-bit against, the behaviour of the
+R package "TrialEmulation":
+
+    TrialEmulation: An R Package to Emulate Target Trials for Causal Analysis of
+    Observational Time-to-event Data.
+    Maintainer: Isaac Gravestock (Roche). Authors include Li Su (MRC-BSU),
+    Roonak Rezvani, Julia Moesch. Funded by the MRC and Roche.
+    Repository: https://github.com/Causal-LDA/TrialEmulation
+    License: Apache-2.0
+
+"TrialEmulation" is the Oracle for this project: it is used (unmodified) to
+generate validation fixtures. tte-expand is an independent reimplementation of
+the deterministic data-expansion stage; it is not a fork of, and is not endorsed
+by, the TrialEmulation maintainers unless stated otherwise. Any fixtures derived
+from the package's shipped example data are credited to the package.

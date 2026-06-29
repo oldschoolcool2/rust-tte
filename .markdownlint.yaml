@@ -1,0 +1,61 @@
+# markdownlint config — mirrors the CI markdownlint job (.github/workflows/markdownlint.yml)
+# and the pre-commit markdownlint-cli2 hook. Rules: https://github.com/DavidAnson/markdownlint
+default: true
+
+# Line length — prose, SPEC tables, and code examples legitimately exceed 80 chars
+MD013: false
+
+# Inline HTML — used in docs for tables, details/summary, etc.
+MD033: false
+
+# First line must be a top-level heading — not required for all files
+MD041: false
+
+# Blanks around headings — pure style; docs don't follow this consistently
+MD022: false
+
+# Blanks around fenced code blocks — pure style
+MD031: false
+
+# Blanks around lists — pure style
+MD032: false
+
+# Trailing punctuation in headings — colons in "Phase X Done When:" headings are common
+MD026: false
+
+# Multiple top-level headings — some docs intentionally use multiple H1s as section markers
+MD025: false
+
+# Emphasis used instead of heading — bold as inline callouts is a common docs pattern
+MD036: false
+
+# Fenced code blocks without language — generic output/diff blocks commonly omit the language
+MD040: false
+
+# Duplicate headings — design docs reuse headings like "Current State" / "Target State"
+MD024: false
+
+# Table column count — some tables use intentional colspan-style formatting
+MD056: false
+
+# Unordered list style (dash vs plus vs asterisk) — docs use mixed styles
+MD004: false
+
+# Ordered list prefix — non-sequential numbering used intentionally in some docs
+MD029: false
+
+# Bare URLs — README and reference docs use plain URLs in code/table context
+MD034: false
+
+# Spaces inside code span — template/format expressions trigger this
+MD038: false
+
+# Blanks around tables — docs don't consistently add blank lines around tables
+MD058: false
+
+# Table pipe spacing — markdownlint 0.40+ enforces compact/aligned pipe spacing;
+# the existing design-doc tables use mixed spacing intentionally
+MD060: false
+
+# Emphasis marker style (underscore vs asterisk) — docs mix both by design
+MD049: false

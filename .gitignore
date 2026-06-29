@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# Rust / Cargo
+# ---------------------------------------------------------------------------
+/target/
+**/target/
+# NOTE: Cargo.lock is intentionally NOT ignored. This project values
+# reproducible builds (bit-exact validation), so the lockfile is committed
+# for every crate in the workspace.
+
+# ---------------------------------------------------------------------------
+# extendr / R-package compiled artifacts (bindings/tters)
+# ---------------------------------------------------------------------------
+*.o
+*.so
+*.dll
+*.dylib
+*.rlib
+bindings/tters/src/rust/target/
+bindings/tters/src/*.o
+bindings/tters/src/*.so
+# `Makevars` is generated from `Makevars.in` by configure; the .in is tracked.
+bindings/tters/src/Makevars
+
+# ---------------------------------------------------------------------------
+# R / renv (oracle/)
+# ---------------------------------------------------------------------------
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+# renv keeps a local library that must never be committed; renv.lock IS committed.
+renv/library/
+renv/local/
+renv/cellar/
+renv/staging/
+renv/sandbox/
+renv/python/
+
+# ---------------------------------------------------------------------------
+# Scratch / temporary
+# ---------------------------------------------------------------------------
+tmp/
+*.tmp
+scratch/
+
+# ---------------------------------------------------------------------------
+# OS / editor noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+/.idea/
+/.vscode/
+
+# ---------------------------------------------------------------------------
+# Claude Code (project-shared config IS committed: settings.json, hooks/, rules/,
+# skills/, commands/; only per-user/local state is ignored)
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+.claude/*.local.*
+.claude/worktrees/

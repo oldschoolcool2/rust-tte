@@ -1,0 +1,22 @@
+[package]
+name = "tte-expand"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Verified, high-performance data-expansion stage for sequential target trial emulation (Rust + Polars), reproducing R TrialEmulation output bit-for-bit."
+keywords = ["epidemiology", "target-trial", "polars", "causal-inference"]
+categories = ["science", "data-structures"]
+
+[dependencies]
+polars = { workspace = true }
+thiserror = { workspace = true }
+
+# Integration tests in tests/ can already use `polars` via the normal dependency
+# above, so no dev-dependency duplication is needed.
+
+[lints]
+workspace = true
+

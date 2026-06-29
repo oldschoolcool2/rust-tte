@@ -1,0 +1,31 @@
+# rustfmt configuration. Discovered by walking up from each source file, so this
+# root copy governs crates/, bindings/, and bench/. All active options are
+# STABLE under the pinned 1.95.0 toolchain (`cargo fmt`).
+
+style_edition = "2024"
+edition = "2024"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+
+reorder_imports = true
+reorder_modules = true
+remove_nested_parens = true
+match_block_trailing_comma = true
+use_field_init_shorthand = true
+use_try_shorthand = true
+merge_derives = true
+
+# ---------------------------------------------------------------------------
+# NIGHTLY-ONLY (still unstable in 1.95). Uncomment ONLY if you also run
+# `cargo +nightly fmt`; plain stable `cargo fmt` will warn and ignore these.
+# ---------------------------------------------------------------------------
+# imports_granularity = "Crate"
+# group_imports = "StdExternalCrate"
+# wrap_comments = true
+# comment_width = 100
+# format_code_in_doc_comments = true
+# normalize_comments = true
+
