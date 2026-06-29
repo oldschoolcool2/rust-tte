@@ -42,6 +42,20 @@ SCENARIOS <- list(
     n = 600, max_period = 15, seed = 108,
     params = list(conf_AL = 1.6, conf_YL = 1.6, out_int = -3.0)
   ),
+  # --- Phase 3: switching cohorts for switch-weight fixtures. switch_prob > 0 is
+  # required so the per-period switch-weight glm has events and converges; the
+  # other scenarios above use absorbing treatment (switch_prob = 0) and CANNOT
+  # carry switch weights (the glm has no switches to model). Verified glm warn=0.
+  moderate_switching = list(
+    desc = "Moderate deviation (switch_prob 0.15) => converging switch weights.",
+    n = 450, max_period = 14, seed = 205,
+    params = list(init_int = -1.0, switch_prob = 0.15, out_int = -3.0)
+  ),
+  frequent_switching = list(
+    desc = "Frequent deviation (switch_prob 0.35) => wide switch-weight range.",
+    n = 350, max_period = 16, seed = 206,
+    params = list(init_int = -1.0, switch_prob = 0.35, out_int = -3.0)
+  ),
   large_scale = list(
     desc = "Volume/memory shakeout (use for benchmarks, not unit fixtures).",
     n = 20000, max_period = 24, seed = 109,

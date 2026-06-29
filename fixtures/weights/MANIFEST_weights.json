@@ -1,0 +1,88 @@
+{
+  "provenance": {
+    "package": "TrialEmulation",
+    "package_version": "0.0.4.11",
+    "r_version": "R version 4.3.3 (2024-02-29)",
+    "generated_utc": "2026-06-29T18:40:04Z"
+  },
+  "fixtures": [
+    {
+      "role": "input",
+      "path": "fixtures/weights/input_data_censored.parquet",
+      "sha256": "0bb2b8f43d42fa02a6329024a98275d310b119e13e277fd3dfb26f3325e35dfc",
+      "n_rows": 725
+    },
+    {
+      "role": "expected_pp_weighted",
+      "path": "fixtures/weights/expected_high_switching_pp_weighted.parquet",
+      "sha256": "128c82b36698cc5f63bcf96199fc0827e269d8a91b4398f1ce9322a6583bb8f4",
+      "n_rows": 8064
+    },
+    {
+      "role": "input_pp_weights",
+      "path": "fixtures/weights/input_high_switching_pp_weights.parquet",
+      "sha256": "8a1dab02a1e953632322962411a07acebb41007737378902319061bc279d08f5",
+      "n_rows": 2597
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_moderate_switching.parquet",
+      "sha256": "d9bf44df232e95b45961f9d2e10720208b27f26673c3cc8f644509ff5fb39bb5",
+      "n_rows": 4239
+    },
+    {
+      "role": "expected_pp_weighted",
+      "path": "fixtures/weights/expected_moderate_switching_pp_weighted.parquet",
+      "sha256": "6783cd81903fe75c1b5076765d850e1a75f2ccd4fbafce54a7ba02ab3e80e4b4",
+      "n_rows": 7620
+    },
+    {
+      "role": "input_pp_weights",
+      "path": "fixtures/weights/input_moderate_switching_pp_weights.parquet",
+      "sha256": "80d8184866a0a807a3154261c91b5bda38d9e150417e62080c9e914f8245c338",
+      "n_rows": 2858
+    },
+    {
+      "role": "input",
+      "path": "fixtures/scenarios/input_frequent_switching.parquet",
+      "sha256": "c293251b728d8cfb6d1c62b8cd512d6a2c092a5dce6c7064eb19c5c9c556eec7",
+      "n_rows": 3756
+    },
+    {
+      "role": "expected_pp_weighted",
+      "path": "fixtures/weights/expected_frequent_switching_pp_weighted.parquet",
+      "sha256": "e8f4b43ad9312e4de43248d26b0281ab9dbe28163a592faf63bd00ce87151f79",
+      "n_rows": 7388
+    },
+    {
+      "role": "input_pp_weights",
+      "path": "fixtures/weights/input_frequent_switching_pp_weights.parquet",
+      "sha256": "1a367a99fb4d0d9cfba3d2c3944f6f7ec8a7cb0cfcbcf7e715f2d17332af2f6e",
+      "n_rows": 2114
+    },
+    {
+      "role": "expected_pp_weighted",
+      "path": "fixtures/weights/expected_data_censored_pp_weighted.parquet",
+      "sha256": "433935d447673b7ea99183d972137afc2be40164525b9a776316ca299457c9f3",
+      "n_rows": 500
+    },
+    {
+      "role": "input_pp_weights",
+      "path": "fixtures/weights/input_data_censored_pp_weights.parquet",
+      "sha256": "f534e5fbebdd284dcd2bd6965fe118bd0a26e32aece91bb6bf1aba0fafde6be4",
+      "n_rows": 159
+    },
+    {
+      "role": "expected_itt_weighted",
+      "path": "fixtures/weights/expected_data_censored_itt_weighted.parquet",
+      "sha256": "675e953196f1dd1f66638c9c69854cc9ddb7b55deecb8dcca3343f15fa296ca3",
+      "n_rows": 1558
+    },
+    {
+      "role": "input_itt_weights",
+      "path": "fixtures/weights/input_data_censored_itt_weights.parquet",
+      "sha256": "f28526cdc4d43be3af516ccbdead30bbb98d708f16089d5c8ee05e2752fa57be",
+      "n_rows": 636
+    }
+  ]
+}

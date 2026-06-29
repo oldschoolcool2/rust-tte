@@ -17,6 +17,13 @@ STRUCTURAL_COLS <- c(
   # add a PP censoring/expand-flag column here IF your version emits one
 )
 
+# Phase 3 (weight application): the weighted expanded frame carries the six
+# STRUCTURAL_COLS plus a per-row `weight` (Float64). The structural columns are
+# matched EXACTLY; `weight` is matched within the harness tolerance (~1e-12
+# relative — ADR-2). This extends, but does NOT disturb, the unweighted ITT/PP
+# STRUCTURAL_COLS contract above.
+STRUCTURAL_COLS_WEIGHTED <- c(STRUCTURAL_COLS, "weight")
+
 # Input schema every cohort (simulated, edge, harvested) must conform to.
 INPUT_COLS <- c("id", "period", "eligible", "treatment", "x1", "x2", "outcome")
 
