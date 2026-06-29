@@ -59,20 +59,13 @@ jobs:
       - name: R CMD INSTALL tters (release)
         run: R CMD INSTALL bindings/tters
 
-      # The testthat suite lives at the canonical `tests/testthat/`. It is
-      # committed under `tests-staging/` until a maintainer relocates it with
-      # `git mv bindings/tters/tests-staging bindings/tters/tests` (the agent's
-      # protect-immutable-paths hook blocks writing any `/tests/` path). This
-      # step runs whichever location exists, so CI is green before and after.
       - name: testthat round-trip (full fixture battery through R)
         run: |
           Rscript -e '
             library(tters)
-            dir <- if (dir.exists("bindings/tters/tests/testthat")) {
-              "bindings/tters/tests/testthat"
-            } else {
-              "bindings/tters/tests-staging/testthat"
-            }
-            cat("running testthat from:", dir, "\n")
-            testthat::test_dir(dir, stop_on_failure = TRUE, reporter = "summary")
+            testthat::test_dir(
+              "bindings/tters/tests/testthat",
+              stop_on_failure = TRUE,
+              reporter = "summary"
+            )
           '
