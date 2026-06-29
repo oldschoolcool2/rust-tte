@@ -27,6 +27,7 @@ docs/
 | [`001-initial-ideations/`](001-initial-ideations/) | The originating research and plan: project memories, the simulation-inputs/validation literature review, the phased project plan, and the executable Phase-0 fixture-generation pre-work. |
 | [`002-phase-0-scaffold/`](002-phase-0-scaffold/) | Phase-0 completion summary, verification results, decisions/deviations, and the remaining human sign-off items. |
 | [`003-phase-1-itt-expansion/`](003-phase-1-itt-expansion/) | Phase-1 ITT engine: the self-join algorithm, the input-derived dtype rules, fixtures generated, bit-exact verification, and the deferred PP/edge-case sign-off items. |
+| [`004-phase-2-pp-censoring/`](004-phase-2-pp-censoring/) | Phase-2 per-protocol engine: first-deviation artificial censoring (`cum_max`/window), the `PP = ITT ∩ S4-survivors` fixture recipe, the no-flag-column schema decision, bit-exact verification, and the ITT-unchanged proof. |
 
 ### `001-initial-ideations/`
 
@@ -48,3 +49,9 @@ docs/
 | File | What it is |
 |---|---|
 | [`001-phase-1-summary.md`](003-phase-1-itt-expansion/001-phase-1-summary.md) | Phase-1 sign-off: the ITT self-join engine, the input-derived dtype contract, the fixtures generated from the Oracle, bit-exact verification (13 fixtures + invariants, all gates green), the two Oracle bugs found, and the deferred PP / `E04`–`E09` / golden items. |
+
+### `004-phase-2-pp-censoring/`
+
+| File | What it is |
+|---|---|
+| [`001-phase-2-summary.md`](004-phase-2-pp-censoring/001-phase-2-summary.md) | Phase-2 sign-off: per-protocol first-deviation censoring (`Estimand::PerProtocol`, `cum_max` over `(id, trial_period)` ordered by `followup_time`), the `PP = ITT ∩ S4-survivors` fixture recipe, the no-flag-column / ITT-consistent schema decision, bit-exact verification across 17 PP fixtures + the monotone-censoring invariant, and the ITT-unchanged proof. |
