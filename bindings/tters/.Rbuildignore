@@ -10,3 +10,7 @@
 ^report$
 ^docs$
 ^LICENSE\.md$
+^\.prepare$
+^src/vendor$
+^src/rust/vendor$
+^tests-staging$
