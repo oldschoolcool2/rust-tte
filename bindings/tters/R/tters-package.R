@@ -303,3 +303,257 @@ expand_trial_weighted_fitted <- function(input_path,
   )
   invisible(output_path)
 }
+
+# ============================================================================
+# Phase 8: in-memory (frame-in / frame-out) wrappers. These mirror the path
+# wrappers above but take an in-memory cohort `data.frame` and RETURN a
+# `data.frame`, with no intermediate Parquet. The cohort is coerced with
+# `as.data.frame()` so tibbles, data.tables, and Arrow Tables are all accepted;
+# columns marshal dtype-exactly (R `integer` <-> Int32, `double` <-> Float64).
+# ============================================================================
+
+#' Expand a target-trial cohort data.frame in memory (ergonomic wrapper)
+#'
+#' Frame-in / frame-out analogue of [expand_trial()]: takes an in-memory cohort
+#' `data.frame` and returns the expanded trial frame as a `data.frame`, with no
+#' intermediate Parquet. Wraps the extendr-generated [expand_df()].
+#'
+#' @param cohort A `data.frame` (or tibble / `data.table` / Arrow `Table`) of long
+#'   person-time rows. Coerced with `as.data.frame()`.
+#' @param id_col,period_col,treatment_col,eligible_col,outcome_col Column names.
+#'   Defaults match the TrialEmulation conventions.
+#' @param first_period,last_period Inclusive integer period bounds.
+#' @param estimand `"ITT"` (intention-to-treat, no artificial censoring) or
+#'   `"PP"` (per-protocol, censor each trial at the first treatment deviation).
+#' @return A `data.frame` with the six structural columns
+#'   (`id`, `trial_period`, `followup_time`, `assigned_treatment`, `treatment`,
+#'   `outcome`).
+#' @seealso [expand_trial()] for the Parquet-path equivalent.
+#' @examples
+#' \dontrun{
+#' cohort <- arrow::read_parquet("input.parquet")
+#' expanded <- expand_trial_df(cohort, estimand = "PP")
+#' }
+#' @export
+expand_trial_df <- function(cohort,
+                            id_col = "id",
+                            period_col = "period",
+                            treatment_col = "treatment",
+                            eligible_col = "eligible",
+                            outcome_col = "outcome",
+                            first_period = 0L,
+                            last_period = .Machine$integer.max,
+                            estimand = "ITT") {
+  cohort <- as.data.frame(cohort)
+  stopifnot(is.data.frame(cohort))
+  expand_df(
+    cohort = cohort,
+    id_col = id_col,
+    period_col = period_col,
+    treatment_col = treatment_col,
+    eligible_col = eligible_col,
+    outcome_col = outcome_col,
+    first_period = as.integer(first_period),
+    last_period = as.integer(last_period),
+    estimand = estimand
+  )
+}
+
+#' Expand a cohort data.frame and attach pre-computed weights, in memory (wrapper)
+#'
+#' Frame-in / frame-out analogue of [expand_trial_weighted()]: takes an in-memory
+#' cohort `data.frame` and a pre-computed factor `data.frame`
+#' (`id`, `period`, `weight_factor`), and returns the weighted, expanded frame as a
+#' `data.frame`. Wraps the extendr-generated [expand_weighted_df()].
+#'
+#' @param cohort A `data.frame` (or tibble / `data.table` / Arrow `Table`) of long
+#'   person-time rows. Coerced with `as.data.frame()`.
+#' @param factors A `data.frame` with columns `id`, `period`, `weight_factor`.
+#'   Coerced with `as.data.frame()`.
+#' @param id_col,period_col,treatment_col,eligible_col,outcome_col Column names.
+#'   Defaults match the TrialEmulation conventions.
+#' @param first_period,last_period Inclusive integer period bounds.
+#' @param estimand `"ITT"` or `"PP"`; selects the weight model upstream, but the
+#'   application arithmetic is identical for both.
+#' @return A `data.frame` with the six structural columns plus `weight`.
+#' @seealso [expand_trial_weighted()] for the Parquet-path equivalent.
+#' @examples
+#' \dontrun{
+#' weighted <- expand_trial_weighted_df(cohort, factors, estimand = "PP")
+#' }
+#' @export
+expand_trial_weighted_df <- function(cohort,
+                                     factors,
+                                     id_col = "id",
+                                     period_col = "period",
+                                     treatment_col = "treatment",
+                                     eligible_col = "eligible",
+                                     outcome_col = "outcome",
+                                     first_period = 0L,
+                                     last_period = .Machine$integer.max,
+                                     estimand = "PP") {
+  cohort <- as.data.frame(cohort)
+  factors <- as.data.frame(factors)
+  stopifnot(is.data.frame(cohort), is.data.frame(factors))
+  expand_weighted_df(
+    cohort = cohort,
+    factors = factors,
+    id_col = id_col,
+    period_col = period_col,
+    treatment_col = treatment_col,
+    eligible_col = eligible_col,
+    outcome_col = outcome_col,
+    first_period = as.integer(first_period),
+    last_period = as.integer(last_period),
+    estimand = estimand
+  )
+}
+
+#' Fit inverse-probability weights for a cohort data.frame, in memory (wrapper)
+#'
+#' Frame-in / frame-out analogue of [fit_trial_weights()]: fits the IPW
+#' switching and/or IPCW censoring models in Rust from an in-memory cohort
+#' `data.frame` and returns the per-`(id, period)` factor table as a `data.frame`
+#' (`id`, `period`, `weight_factor`) — the table [expand_trial_weighted_df()]
+#' consumes. Wraps the extendr-generated [fit_weights_df()].
+#'
+#' Model presence follows the same `NULL`-driven rule as [fit_trial_weights()]: a
+#' switching model is fitted when either `switch_*` covariate vector is non-`NULL`;
+#' an IPCW model is fitted when `censor_col` is non-`NULL`.
+#'
+#' @param cohort A `data.frame` (or tibble / `data.table` / Arrow `Table`) of long
+#'   person-time rows. Coerced with `as.data.frame()`.
+#' @param id_col,period_col,treatment_col,eligible_col,outcome_col Column names.
+#'   Defaults match the TrialEmulation conventions.
+#' @param first_period,last_period Inclusive integer period bounds.
+#' @param estimand `"ITT"` or `"PP"`.
+#' @param switch_numerator,switch_denominator Character vectors of covariate column
+#'   names for the switching numerator / denominator models, or `NULL` to omit
+#'   switching weights.
+#' @param censor_col Name of the `{0,1}` censoring-indicator column; the modelled
+#'   response is `1 - censor_col`. `NULL` omits IPCW weights.
+#' @param censor_numerator,censor_denominator Character vectors of covariate column
+#'   names for the IPCW numerator / denominator models.
+#' @param pool_censor How the IPCW models are pooled across the previous-treatment
+#'   strata: `"none"`, `"numerator"`, or `"both"`.
+#' @return A `data.frame` with columns `id`, `period`, `weight_factor`.
+#' @seealso [fit_trial_weights()] for the Parquet-path equivalent;
+#'   [expand_trial_weighted_fitted_df()] to fit and expand in a single call.
+#' @examples
+#' \dontrun{
+#' factors <- fit_trial_weights_df(
+#'   cohort, estimand = "PP",
+#'   switch_numerator = "x2", switch_denominator = c("x2", "x1")
+#' )
+#' }
+#' @export
+fit_trial_weights_df <- function(cohort,
+                                 id_col = "id",
+                                 period_col = "period",
+                                 treatment_col = "treatment",
+                                 eligible_col = "eligible",
+                                 outcome_col = "outcome",
+                                 first_period = 0L,
+                                 last_period = .Machine$integer.max,
+                                 estimand = "PP",
+                                 switch_numerator = NULL,
+                                 switch_denominator = NULL,
+                                 censor_col = NULL,
+                                 censor_numerator = NULL,
+                                 censor_denominator = NULL,
+                                 pool_censor = "none") {
+  cohort <- as.data.frame(cohort)
+  stopifnot(is.data.frame(cohort))
+  spec <- .tters_weight_spec(
+    switch_numerator, switch_denominator,
+    censor_col, censor_numerator, censor_denominator
+  )
+  fit_weights_df(
+    cohort = cohort,
+    id_col = id_col,
+    period_col = period_col,
+    treatment_col = treatment_col,
+    eligible_col = eligible_col,
+    outcome_col = outcome_col,
+    first_period = as.integer(first_period),
+    last_period = as.integer(last_period),
+    estimand = estimand,
+    use_switch = spec$use_switch,
+    switch_numerator = spec$switch_numerator,
+    switch_denominator = spec$switch_denominator,
+    use_censor = spec$use_censor,
+    censor_col = spec$censor_col,
+    censor_numerator = spec$censor_numerator,
+    censor_denominator = spec$censor_denominator,
+    pool_censor = pool_censor
+  )
+}
+
+#' Fit IPW weights and expand a cohort data.frame in one call, in memory (wrapper)
+#'
+#' Frame-in / frame-out analogue of [expand_trial_weighted_fitted()]: takes a raw
+#' cohort `data.frame` straight to a weighted, expanded `data.frame` in one call —
+#' fitting the switching and/or IPCW models in Rust (no pre-computed factor table),
+#' expanding under `estimand`, and accumulating the fitted factor into the
+#' cumulative `weight`. The six structural columns are bit-exact; `weight` matches
+#' the Oracle within the staged ~1e-6 tolerance. Wraps the extendr-generated
+#' [expand_weighted_fitted_df()].
+#'
+#' Model presence follows the same rule as [fit_trial_weights_df()].
+#'
+#' @inheritParams fit_trial_weights_df
+#' @return A `data.frame` with the six structural columns plus `weight`.
+#' @seealso [expand_trial_weighted_fitted()] for the Parquet-path equivalent;
+#'   [fit_trial_weights_df()] to return only the factor table.
+#' @examples
+#' \dontrun{
+#' weighted <- expand_trial_weighted_fitted_df(
+#'   cohort, estimand = "PP",
+#'   switch_numerator = "x2", switch_denominator = c("x2", "x1"),
+#'   censor_col = "censored",
+#'   censor_numerator = "x2", censor_denominator = c("x2", "x1"),
+#'   pool_censor = "none"
+#' )
+#' }
+#' @export
+expand_trial_weighted_fitted_df <- function(cohort,
+                                            id_col = "id",
+                                            period_col = "period",
+                                            treatment_col = "treatment",
+                                            eligible_col = "eligible",
+                                            outcome_col = "outcome",
+                                            first_period = 0L,
+                                            last_period = .Machine$integer.max,
+                                            estimand = "PP",
+                                            switch_numerator = NULL,
+                                            switch_denominator = NULL,
+                                            censor_col = NULL,
+                                            censor_numerator = NULL,
+                                            censor_denominator = NULL,
+                                            pool_censor = "none") {
+  cohort <- as.data.frame(cohort)
+  stopifnot(is.data.frame(cohort))
+  spec <- .tters_weight_spec(
+    switch_numerator, switch_denominator,
+    censor_col, censor_numerator, censor_denominator
+  )
+  expand_weighted_fitted_df(
+    cohort = cohort,
+    id_col = id_col,
+    period_col = period_col,
+    treatment_col = treatment_col,
+    eligible_col = eligible_col,
+    outcome_col = outcome_col,
+    first_period = as.integer(first_period),
+    last_period = as.integer(last_period),
+    estimand = estimand,
+    use_switch = spec$use_switch,
+    switch_numerator = spec$switch_numerator,
+    switch_denominator = spec$switch_denominator,
+    use_censor = spec$use_censor,
+    censor_col = spec$censor_col,
+    censor_numerator = spec$censor_numerator,
+    censor_denominator = spec$censor_denominator,
+    pool_censor = pool_censor
+  )
+}

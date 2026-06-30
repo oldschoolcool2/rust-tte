@@ -8,6 +8,23 @@ use tte_expand::{
     CensorWeightSpec, Estimand, ExpandOptions, PoolCensor, SwitchWeightSpec, WeightSpec,
 };
 
+// Phase 8: in-memory marshalling between an R `data.frame` and a Polars frame, so
+// the `*_df` shims below can run cohort-frame -> result-frame with no intermediate
+// Parquet (the verified dtype-exact transformation still lives in the core).
+mod frame;
+
+/// Map a core [`tte_expand::ExpandError`] to a clean R error condition — the exact
+/// mapping the parquet-path shims use, so `ExpandError::WeightFit` and friends
+/// surface identically on the in-memory path.
+fn core_err(e: tte_expand::ExpandError) -> Error {
+    Error::Other(format!("tte-expand: {e}"))
+}
+
+/// Map a Polars error (from `.collect()`) to a clean R error condition.
+fn collect_err(e: polars::prelude::PolarsError) -> Error {
+    Error::Other(format!("tte-expand: {e}"))
+}
+
 /// Map an R-supplied estimand label to the core [`Estimand`].
 ///
 /// Accepts `"ITT"` (intention-to-treat) and `"PP"` / `"per-protocol"`,
@@ -395,6 +412,253 @@ fn expand_weighted_fitted_parquet(
     Ok(())
 }
 
+/// Expand an in-memory cohort `data.frame` into the sequential target-trial layout
+/// and return the result as a `data.frame` — the frame-in/frame-out analogue of
+/// `expand_parquet()`, with no intermediate Parquet.
+///
+/// The cohort arrives as an R `data.frame` (a `list` of equal-length columns);
+/// columns are marshalled dtype-exactly into a Polars frame (R `integer` ->
+/// `Int32`, `double` -> `Float64`), expanded by the verified core, and the six
+/// structural columns are marshalled back to an R `data.frame`.
+///
+/// @param cohort An R `data.frame` of long person-time rows.
+/// @param id_col,period_col,treatment_col Column names in `cohort`.
+/// @param eligible_col,outcome_col Eligibility / outcome column names.
+/// @param first_period,last_period Inclusive integer bounds on `trial_period`.
+/// @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+/// @return A `data.frame` with the six structural columns. Errors in the core
+///   engine surface as R errors.
+/// @export
+#[extendr]
+#[allow(clippy::too_many_arguments)] // FFI boundary: R passes flat scalar args, not a struct.
+fn expand_df(
+    cohort: List,
+    id_col: &str,
+    period_col: &str,
+    treatment_col: &str,
+    eligible_col: &str,
+    outcome_col: &str,
+    first_period: i32,
+    last_period: i32,
+    estimand: &str,
+) -> Result<Robj> {
+    let opts = build_options(
+        id_col,
+        period_col,
+        treatment_col,
+        eligible_col,
+        outcome_col,
+        first_period,
+        last_period,
+        estimand,
+    )?;
+    let cohort_lf = frame::lazyframe_from_list(&cohort)?;
+    let out = tte_expand::expand(cohort_lf, &opts)
+        .map_err(core_err)?
+        .collect()
+        .map_err(collect_err)?;
+    frame::dataframe_to_robj(&out)
+}
+
+/// Expand an in-memory cohort and attach pre-computed inverse-probability weights,
+/// returning the weighted frame as a `data.frame` — the frame-in/frame-out
+/// analogue of `expand_weighted_parquet()`.
+///
+/// Both the cohort and the per-`(id, period)` factor table (`id, period,
+/// weight_factor`) are passed as R `data.frame`s; the engine expands under
+/// `estimand`, joins the factors, and accumulates the cumulative-product `weight`.
+///
+/// @param cohort An R `data.frame` of long person-time rows.
+/// @param factors An R `data.frame` with columns `id`, `period`, `weight_factor`.
+/// @param id_col,period_col,treatment_col Column names in `cohort`.
+/// @param eligible_col,outcome_col Eligibility / outcome column names.
+/// @param first_period,last_period Inclusive integer bounds on `trial_period`.
+/// @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+/// @return A `data.frame` with the six structural columns plus `weight`. Errors in
+///   the core engine surface as R errors.
+/// @export
+#[extendr]
+#[allow(clippy::too_many_arguments)] // FFI boundary: R passes flat scalar args, not a struct.
+fn expand_weighted_df(
+    cohort: List,
+    factors: List,
+    id_col: &str,
+    period_col: &str,
+    treatment_col: &str,
+    eligible_col: &str,
+    outcome_col: &str,
+    first_period: i32,
+    last_period: i32,
+    estimand: &str,
+) -> Result<Robj> {
+    let opts = build_options(
+        id_col,
+        period_col,
+        treatment_col,
+        eligible_col,
+        outcome_col,
+        first_period,
+        last_period,
+        estimand,
+    )?;
+    let cohort_lf = frame::lazyframe_from_list(&cohort)?;
+    let factors_lf = frame::lazyframe_from_list(&factors)?;
+    let expanded = tte_expand::expand(cohort_lf, &opts).map_err(core_err)?;
+    let out = tte_expand::apply_weights(expanded, factors_lf, &opts)
+        .map_err(core_err)?
+        .collect()
+        .map_err(collect_err)?;
+    frame::dataframe_to_robj(&out)
+}
+
+/// Fit the inverse-probability weight factor for an in-memory cohort and return the
+/// per-`(id, period)` factor table (`id, period, weight_factor`) as a `data.frame`
+/// — the frame-in/frame-out analogue of `fit_weights_parquet()`.
+///
+/// @param cohort An R `data.frame` of long person-time rows.
+/// @param id_col,period_col,treatment_col Column names in `cohort`.
+/// @param eligible_col,outcome_col Eligibility / outcome column names.
+/// @param first_period,last_period Inclusive integer bounds on `trial_period`.
+/// @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+/// @param use_switch Whether to fit per-protocol switching-weight models.
+/// @param switch_numerator,switch_denominator Covariate columns for the switching
+///   numerator/denominator models (ignored when `use_switch` is `FALSE`).
+/// @param use_censor Whether to fit inverse-probability-of-censoring (IPCW) models.
+/// @param censor_col Name of the `{0,1}` censoring-indicator column; the response
+///   is `1 - censor_col` (ignored when `use_censor` is `FALSE`).
+/// @param censor_numerator,censor_denominator Covariate columns for the IPCW
+///   numerator/denominator models (ignored when `use_censor` is `FALSE`).
+/// @param pool_censor How the IPCW models are pooled across the previous-treatment
+///   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
+/// @return A `data.frame` with columns `id`, `period`, `weight_factor`. Errors in
+///   the core engine (including weight-fit failures) surface as R errors.
+/// @export
+#[extendr]
+#[allow(clippy::too_many_arguments)] // FFI boundary: R passes flat scalar args, not a struct.
+fn fit_weights_df(
+    cohort: List,
+    id_col: &str,
+    period_col: &str,
+    treatment_col: &str,
+    eligible_col: &str,
+    outcome_col: &str,
+    first_period: i32,
+    last_period: i32,
+    estimand: &str,
+    use_switch: bool,
+    switch_numerator: Strings,
+    switch_denominator: Strings,
+    use_censor: bool,
+    censor_col: &str,
+    censor_numerator: Strings,
+    censor_denominator: Strings,
+    pool_censor: &str,
+) -> Result<Robj> {
+    let opts = build_options(
+        id_col,
+        period_col,
+        treatment_col,
+        eligible_col,
+        outcome_col,
+        first_period,
+        last_period,
+        estimand,
+    )?;
+    let spec = build_weight_spec(
+        use_switch,
+        &switch_numerator,
+        &switch_denominator,
+        use_censor,
+        censor_col,
+        &censor_numerator,
+        &censor_denominator,
+        pool_censor,
+    )?;
+    let cohort_lf = frame::lazyframe_from_list(&cohort)?;
+    let out = tte_expand::fit_weights(cohort_lf, &opts, &spec)
+        .map_err(core_err)?
+        .collect()
+        .map_err(collect_err)?;
+    frame::dataframe_to_robj(&out)
+}
+
+/// Fit the IPW weights for an in-memory cohort, expand, apply, and return the
+/// weighted trial frame as a `data.frame` — a raw cohort `data.frame` straight to a
+/// weighted, expanded `data.frame` in one call (no pre-computed factor table, no
+/// intermediate Parquet). The frame-in/frame-out analogue of
+/// `expand_weighted_fitted_parquet()`.
+///
+/// @param cohort An R `data.frame` of long person-time rows.
+/// @param id_col,period_col,treatment_col Column names in `cohort`.
+/// @param eligible_col,outcome_col Eligibility / outcome column names.
+/// @param first_period,last_period Inclusive integer bounds on `trial_period`.
+/// @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+/// @param use_switch Whether to fit per-protocol switching-weight models.
+/// @param switch_numerator,switch_denominator Covariate columns for the switching
+///   numerator/denominator models (ignored when `use_switch` is `FALSE`).
+/// @param use_censor Whether to fit inverse-probability-of-censoring (IPCW) models.
+/// @param censor_col Name of the `{0,1}` censoring-indicator column; the response
+///   is `1 - censor_col` (ignored when `use_censor` is `FALSE`).
+/// @param censor_numerator,censor_denominator Covariate columns for the IPCW
+///   numerator/denominator models (ignored when `use_censor` is `FALSE`).
+/// @param pool_censor How the IPCW models are pooled across the previous-treatment
+///   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
+/// @return A `data.frame` with the six structural columns plus `weight`. Errors in
+///   the core engine (including weight-fit failures) surface as R errors.
+/// @export
+#[extendr]
+#[allow(clippy::too_many_arguments)] // FFI boundary: R passes flat scalar args, not a struct.
+fn expand_weighted_fitted_df(
+    cohort: List,
+    id_col: &str,
+    period_col: &str,
+    treatment_col: &str,
+    eligible_col: &str,
+    outcome_col: &str,
+    first_period: i32,
+    last_period: i32,
+    estimand: &str,
+    use_switch: bool,
+    switch_numerator: Strings,
+    switch_denominator: Strings,
+    use_censor: bool,
+    censor_col: &str,
+    censor_numerator: Strings,
+    censor_denominator: Strings,
+    pool_censor: &str,
+) -> Result<Robj> {
+    let opts = build_options(
+        id_col,
+        period_col,
+        treatment_col,
+        eligible_col,
+        outcome_col,
+        first_period,
+        last_period,
+        estimand,
+    )?;
+    let spec = build_weight_spec(
+        use_switch,
+        &switch_numerator,
+        &switch_denominator,
+        use_censor,
+        censor_col,
+        &censor_numerator,
+        &censor_denominator,
+        pool_censor,
+    )?;
+    let cohort_lf = frame::lazyframe_from_list(&cohort)?;
+    // Mirror `expand_weighted_fitted_parquet`: fit the factor from the cohort,
+    // expand the same cohort, then apply. LazyFrame clones are cheap (logical plan).
+    let factors = tte_expand::fit_weights(cohort_lf.clone(), &opts, &spec).map_err(core_err)?;
+    let expanded = tte_expand::expand(cohort_lf, &opts).map_err(core_err)?;
+    let out = tte_expand::apply_weights(expanded, factors, &opts)
+        .map_err(core_err)?
+        .collect()
+        .map_err(collect_err)?;
+    frame::dataframe_to_robj(&out)
+}
+
 // Registers the exported functions with R. The module name here (`tters`) must
 // match the package/lib name and the symbols in entrypoint.c / *-win.def.
 extendr_module! {
@@ -403,4 +667,8 @@ extendr_module! {
     fn expand_weighted_parquet;
     fn fit_weights_parquet;
     fn expand_weighted_fitted_parquet;
+    fn expand_df;
+    fn expand_weighted_df;
+    fn fit_weights_df;
+    fn expand_weighted_fitted_df;
 }
