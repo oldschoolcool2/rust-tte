@@ -20,6 +20,17 @@ bench = false
 
 [dependencies]
 extendr-api = "0.9"
+# Phase 8 (in-memory frame I/O): name Polars' `DataFrame` / `LazyFrame` / `Series`
+# types directly, so the shim can marshal an R `data.frame` <-> a Polars frame and
+# compose the already-public `expand` / `apply_weights` / `fit_weights` core API in
+# memory (no intermediate Parquet). Polars is ALREADY in the binding's transitive
+# tree (via the `tte-expand` path dep below) and pinned to 0.54.4 in
+# `src/rust/Cargo.lock`; this only declares that existing crate directly. Mirror the
+# root workspace's `default-features = false` + minimal `lazy` feature so the build
+# resolves to the SAME single polars 0.54.4 instance (features union with the core's
+# set) — no new crate version, only an added graph edge in the lockfile. `cargo deny`
+# stays clean (polars/arrow are already covered by the repo allow-list).
+polars = { version = "0.54", default-features = false, features = ["lazy"] }
 # Path dependency on the verified core crate. Relative to THIS Cargo.toml
 # (bindings/tters/src/rust/): four levels up reaches the repo root, then
 # crates/tte-expand.

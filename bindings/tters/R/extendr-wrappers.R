@@ -155,4 +155,92 @@ fit_weights_parquet <- function(input_path, output_path, id_col, period_col, tre
 #' @export
 expand_weighted_fitted_parquet <- function(input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor) .Call(wrap__expand_weighted_fitted_parquet, input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor)
 
+#' Expand an in-memory cohort `data.frame` into the sequential target-trial layout
+#' and return the result as a `data.frame` — the frame-in/frame-out analogue of
+#' `expand_parquet()`, with no intermediate Parquet.
+#'
+#' The cohort arrives as an R `data.frame` (a `list` of equal-length columns);
+#' columns are marshalled dtype-exactly into a Polars frame (R `integer` ->
+#' `Int32`, `double` -> `Float64`), expanded by the verified core, and the six
+#' structural columns are marshalled back to an R `data.frame`.
+#'
+#' @param cohort An R `data.frame` of long person-time rows.
+#' @param id_col,period_col,treatment_col Column names in `cohort`.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+#' @return A `data.frame` with the six structural columns. Errors in the core
+#'   engine surface as R errors.
+#' @export
+expand_df <- function(cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand) .Call(wrap__expand_df, cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand)
+
+#' Expand an in-memory cohort and attach pre-computed inverse-probability weights,
+#' returning the weighted frame as a `data.frame` — the frame-in/frame-out
+#' analogue of `expand_weighted_parquet()`.
+#'
+#' Both the cohort and the per-`(id, period)` factor table (`id, period,
+#' weight_factor`) are passed as R `data.frame`s; the engine expands under
+#' `estimand`, joins the factors, and accumulates the cumulative-product `weight`.
+#'
+#' @param cohort An R `data.frame` of long person-time rows.
+#' @param factors An R `data.frame` with columns `id`, `period`, `weight_factor`.
+#' @param id_col,period_col,treatment_col Column names in `cohort`.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+#' @return A `data.frame` with the six structural columns plus `weight`. Errors in
+#'   the core engine surface as R errors.
+#' @export
+expand_weighted_df <- function(cohort, factors, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand) .Call(wrap__expand_weighted_df, cohort, factors, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand)
+
+#' Fit the inverse-probability weight factor for an in-memory cohort and return the
+#' per-`(id, period)` factor table (`id, period, weight_factor`) as a `data.frame`
+#' — the frame-in/frame-out analogue of `fit_weights_parquet()`.
+#'
+#' @param cohort An R `data.frame` of long person-time rows.
+#' @param id_col,period_col,treatment_col Column names in `cohort`.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+#' @param use_switch Whether to fit per-protocol switching-weight models.
+#' @param switch_numerator,switch_denominator Covariate columns for the switching
+#'   numerator/denominator models (ignored when `use_switch` is `FALSE`).
+#' @param use_censor Whether to fit inverse-probability-of-censoring (IPCW) models.
+#' @param censor_col Name of the `{0,1}` censoring-indicator column; the response
+#'   is `1 - censor_col` (ignored when `use_censor` is `FALSE`).
+#' @param censor_numerator,censor_denominator Covariate columns for the IPCW
+#'   numerator/denominator models (ignored when `use_censor` is `FALSE`).
+#' @param pool_censor How the IPCW models are pooled across the previous-treatment
+#'   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
+#' @return A `data.frame` with columns `id`, `period`, `weight_factor`. Errors in
+#'   the core engine (including weight-fit failures) surface as R errors.
+#' @export
+fit_weights_df <- function(cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor) .Call(wrap__fit_weights_df, cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor)
+
+#' Fit the IPW weights for an in-memory cohort, expand, apply, and return the
+#' weighted trial frame as a `data.frame` — a raw cohort `data.frame` straight to a
+#' weighted, expanded `data.frame` in one call (no pre-computed factor table, no
+#' intermediate Parquet). The frame-in/frame-out analogue of
+#' `expand_weighted_fitted_parquet()`.
+#'
+#' @param cohort An R `data.frame` of long person-time rows.
+#' @param id_col,period_col,treatment_col Column names in `cohort`.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+#' @param use_switch Whether to fit per-protocol switching-weight models.
+#' @param switch_numerator,switch_denominator Covariate columns for the switching
+#'   numerator/denominator models (ignored when `use_switch` is `FALSE`).
+#' @param use_censor Whether to fit inverse-probability-of-censoring (IPCW) models.
+#' @param censor_col Name of the `{0,1}` censoring-indicator column; the response
+#'   is `1 - censor_col` (ignored when `use_censor` is `FALSE`).
+#' @param censor_numerator,censor_denominator Covariate columns for the IPCW
+#'   numerator/denominator models (ignored when `use_censor` is `FALSE`).
+#' @param pool_censor How the IPCW models are pooled across the previous-treatment
+#'   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
+#' @return A `data.frame` with the six structural columns plus `weight`. Errors in
+#'   the core engine (including weight-fit failures) surface as R errors.
+#' @export
+expand_weighted_fitted_df <- function(cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor) .Call(wrap__expand_weighted_fitted_df, cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor)
+
 # nolint end

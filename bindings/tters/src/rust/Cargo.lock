@@ -3145,6 +3145,7 @@ name = "tters"
 version = "0.1.0"
 dependencies = [
  "extendr-api",
+ "polars",
  "tte-expand",
 ]
 
