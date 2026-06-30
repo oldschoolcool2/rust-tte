@@ -30,6 +30,7 @@ docs/
 | [`004-phase-2-pp-censoring/`](004-phase-2-pp-censoring/) | Phase-2 per-protocol engine: first-deviation artificial censoring (`cum_max`/window), the `PP = ITT ∩ S4-survivors` fixture recipe, the no-flag-column schema decision, bit-exact verification, and the ITT-unchanged proof. |
 | [`005-phase-3-weight-application/`](005-phase-3-weight-application/) | Phase-3 weight application: the join + cumulative-product (`cum_prod`/window) design, the per-`(id, period)` factor table recovered from the Oracle weights, the `STRUCTURAL_COLS_WEIGHTED` schema, the 1e-12 tolerance, verification within tolerance, and the ITT/PP-unchanged proof. |
 | [`006-phase-4-extendr-binding/`](006-phase-4-extendr-binding/) | Phase-4 extendr binding (`tters`): the FFI shim exposing estimand selection + weighted expansion to R, the regenerated extendr wrappers / NAMESPACE / man, the toolchain & version reconciliation (extendr 0.9 / rextendr 0.5 / R 4.3.3, MSRV bumped to 1.95), the `R CMD INSTALL` + testthat round-trip reproducing the full battery, and the root-workspace-unchanged proof. |
+| [`007-phase-5-benchmark-certificate/`](007-phase-5-benchmark-certificate/) | Phase-5 benchmark + reproducibility certificate: the pure-cargo certificate generator (recompute every fixture SHA-256 vs the manifests + re-verify equivalence + record Oracle/toolchain pins), the criterion runtime micro-benchmarks, the R-vs-Rust runtime/peak-RSS harness incl. the R-OOM / Rust-OK regime, the Tier-2 whole-pipeline golden (Rust-expand → R-estimate matches upstream), the `make verify` entry point + CI, and the engine-unchanged proof. |
 
 ### `001-initial-ideations/`
 
@@ -69,3 +70,9 @@ docs/
 | File | What it is |
 |---|---|
 | [`001-phase-4-summary.md`](006-phase-4-extendr-binding/001-phase-4-summary.md) | Phase-4 sign-off: the `tters` extendr shim (`expand_parquet` / `expand_weighted_parquet` with estimand selection + faithful `ExpandError`→R error mapping), the ergonomic `expand_trial` / `expand_trial_weighted` wrappers, the regenerated extendr wrappers / NAMESPACE / man, the VERIFY-FIRST toolchain & version reconciliation (extendr-api 0.9.0, rextendr 0.5.0, R 4.3.3; MSRV bumped 1.71→1.95 for Polars), the `R CMD INSTALL` (debug + release) + testthat round-trip reproducing the full battery (structural exact + `weight` within 1e-12), and the root-workspace-unchanged proof. |
+
+### `007-phase-5-benchmark-certificate/`
+
+| File | What it is |
+|---|---|
+| [`001-phase-5-summary.md`](007-phase-5-benchmark-certificate/001-phase-5-summary.md) | Phase-5 sign-off: the reproducibility certificate (`make verify` recomputes 47/47 fixture SHA-256 vs the manifests, re-verifies equivalence, and records Oracle + toolchain pins), the criterion `expand`/`apply_weights` micro-benchmarks, the R-vs-Rust runtime/peak-RSS harness with the R-OOM (≈5×10⁶) / Rust-OK (10⁷ in 2.5 s) regime, the Tier-2 whole-pipeline golden (Rust-expand → R-estimate matches upstream within tolerance), the VERIFY-FIRST findings (criterion/cargo-deny, R timing+RSS method, golden-tier decision, CI scoping), the CI job, and the engine-unchanged proof. |

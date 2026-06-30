@@ -1,0 +1,27 @@
+# Standalone CLI that times the engine end-to-end under `/usr/bin/time -v`, so
+# the Rust peak RSS is measured the SAME way as the R baseline (whole process).
+#
+# Its own `[workspace]` table makes this a SEPARATE workspace root: the parent
+# `tte-expand` workspace (members = ["crates/tte-expand"]) never absorbs it, and
+# `cargo build/test/clippy/deny` at the repo root ignore it. It is built only by
+# `bench/run_bench.sh` / `make curves`. The engine is a path dependency, so the
+# runner always exercises the exact same verified code.
+[workspace]
+
+[package]
+name = "tte-bench-runner"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+
+[[bin]]
+name = "runner"
+path = "src/main.rs"
+
+[dependencies]
+tte-expand = { path = "../../crates/tte-expand" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
