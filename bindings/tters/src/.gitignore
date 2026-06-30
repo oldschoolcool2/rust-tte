@@ -4,5 +4,10 @@
 target
 .cargo
 rust/vendor
+vendor
+# Generated, large (~600 MB) release-only vendoring artifacts: never commit them.
+# tools/build-offline-tarball.sh regenerates them from the pinned rev on demand.
+rust/vendor.tar.xz
+rust/vendor-config.toml
 Makevars
 Makevars.win

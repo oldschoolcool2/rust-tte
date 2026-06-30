@@ -69,3 +69,64 @@ jobs:
               reporter = "summary"
             )
           '
+
+  standalone-install:
+    name: Standalone (monorepo-absent) install + self-test
+    runs-on: ubuntu-latest
+    # Proves the Phase-10 distribution path: a self-contained source tarball
+    # (core crate + every Cargo dep vendored) installs with the monorepo
+    # unreachable and runs its testthat battery against the vendored
+    # inst/extdata subset (not skip()). CARGO_PROFILE_*_DEBUG=0 keeps the
+    # vendored-Polars build within the runner's disk budget.
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      # Full history so build-offline-tarball.sh can `git clone --bare` the
+      # workspace and cargo can vendor the git-pinned core at HEAD.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # arrow pulls bit64 (a hard Imports), so tters' Imports are satisfied.
+      - name: Install R test dependencies
+        run: Rscript -e 'install.packages(c("testthat", "arrow"))'
+
+      # Synthesize the git-dep form + cargo-vendor the whole tree into a
+      # self-contained tarball (the committed working tree keeps its path dep).
+      - name: Build self-contained tarball (vendored core + crates.io deps)
+        run: sh bindings/tters/tools/build-offline-tarball.sh "" "${{ runner.temp }}"
+
+      # Install OFFLINE in an isolated library: the unpacked tarball lives under
+      # runner.temp, so the relative '../../../../crates/tte-expand' path resolves
+      # to nothing -- the build must succeed purely from the vendored sources.
+      - name: R CMD INSTALL the tarball offline (monorepo unreachable)
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p lib
+          CARGO_NET_OFFLINE=true DEBUG=true R CMD INSTALL --library=lib tters_*.tar.gz
+
+      # Run the battery from runner.temp (repo-root fixtures/ unreachable), so the
+      # resolver falls to system.file("extdata") -- the vendored subset, not skip().
+      - name: testthat self-test against inst/extdata
+        working-directory: ${{ runner.temp }}
+        run: |
+          tar xzf tters_*.tar.gz
+          # Prepend the tters-only library to the DEFAULT paths (which hold
+          # testthat/arrow); do NOT override R_LIBS_USER, or those go missing.
+          Rscript -e '
+            .libPaths(c(file.path(Sys.getenv("RUNNER_TEMP"), "lib"), .libPaths()))
+            library(testthat); library(tters)
+            Sys.unsetenv("TTERS_FIXTURE_DIR")
+            ex <- system.file("extdata", package = "tters")
+            stopifnot(nzchar(ex), length(list.files(ex, recursive = TRUE, pattern = "[.]parquet$")) > 0)
+            message("self-test fixtures: ", ex)
+            testthat::test_dir("tters/tests/testthat", stop_on_failure = TRUE, reporter = "summary")
+          '

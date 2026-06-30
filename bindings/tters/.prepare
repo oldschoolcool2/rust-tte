@@ -1,0 +1,30 @@
+#!/bin/sh
+# r-universe build hook.
+#
+# r-universe clones the WHOLE monorepo and, before `R CMD build`, runs this script
+# in the package directory while every sibling (incl. crates/tte-expand) is still
+# on disk (r-universe-org/build-source entrypoint.sh:
+# `elif test -f "$PKGDIR/.prepare"; then (cd $PKGDIR; sh .prepare)`).
+#
+# `R CMD build` then tarballs ONLY this subdir, so the committed path dependency on
+# ../../../../crates/tte-expand would not survive into the distributable tarball
+# (see docs/012-... for the reproduced break). We make the subdir self-contained by
+# rewriting that path dep into a `git`+pinned-`rev` dependency on THIS repo at the
+# exact commit r-universe is building. r-universe build runners have network, so the
+# downstream `cargo build` fetches the core (and crates.io deps) at build time — no
+# committed vendor tree is needed for r-universe (that is the CRAN-only path; CRAN
+# is not a target, the vendored Polars tree busts its 5 MB limit).
+#
+# The committed working tree is UNCHANGED by this (r-universe edits its throwaway
+# clone). The rev is resolved dynamically from the built commit, so the git dep
+# always points at a commit that exists on the public repo.
+set -eu
+
+# Canonical PUBLIC repository URL (the universe builds the public repo).
+URL="https://github.com/oldschoolcool2/rust-tte"
+
+# The exact commit r-universe is building (full clone => HEAD is that commit).
+REV="$(git rev-parse HEAD)"
+
+echo "tters/.prepare: pinning tte-expand to ${URL} @ ${REV}"
+sh tools/rewrite-core-dep.sh "$URL" "$REV" src/rust
