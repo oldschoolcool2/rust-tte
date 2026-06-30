@@ -1,0 +1,38 @@
+tters
+Copyright 2026 The tte-expand authors
+
+This R package ('tters') is a thin extendr binding over the verified 'tte-expand'
+Rust + Polars core, which reproduces — bit-for-bit — the deterministic
+data-expansion stage of sequential target trial emulation. Licensed under the
+Apache License, Version 2.0 (see the 'License' field in DESCRIPTION; full text at
+http://www.apache.org/licenses/LICENSE-2.0).
+
+--------------------------------------------------------------------------------
+Attribution (upstream Oracle)
+--------------------------------------------------------------------------------
+
+This project reproduces, and validates bit-for-bit against, the behaviour of the
+R package "TrialEmulation":
+
+    TrialEmulation: An R Package to Emulate Target Trials for Causal Analysis of
+    Observational Time-to-event Data.
+    Maintainer: Isaac Gravestock (Roche). Authors include Li Su (MRC-BSU),
+    Roonak Rezvani, Julia Moesch. Funded by the MRC and Roche.
+    Repository: https://github.com/Causal-LDA/TrialEmulation
+    License: Apache-2.0
+
+"TrialEmulation" is the Oracle for this project: it is run (unmodified) to
+generate the validation fixtures. 'tters' / 'tte-expand' is an independent
+reimplementation of the deterministic data-expansion stage; it is not a fork of,
+and is not endorsed by, the TrialEmulation maintainers unless stated otherwise.
+
+--------------------------------------------------------------------------------
+Bundled example data (inst/extdata/)
+--------------------------------------------------------------------------------
+
+The Parquet files under inst/extdata/ are a small, representative SUBSET of this
+project's own Oracle-generated validation fixtures (the immutable repo-root
+'fixtures/' tree), vendored so the installed package's testthat self-test can run
+without the surrounding monorepo. They are this project's outputs (Apache-2.0),
+generated from the TrialEmulation Oracle above; the canonical source of truth
+remains the repo-root 'fixtures/'. Regenerate with tools/vendor-extdata.R.
