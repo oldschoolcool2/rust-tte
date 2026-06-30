@@ -56,7 +56,7 @@ fitting the switching and/or IPCW models in Rust (no pre-computed factor table),
 expanding under \code{estimand}, and accumulating the fitted factor into the
 cumulative \code{weight}. The six structural columns are bit-exact; \code{weight} matches
 the Oracle within the staged ~1e-6 tolerance. Wraps the extendr-generated
-\code{\link[=expand_weighted_fitted_df]{expand_weighted_fitted_df()}}.
+\code{\link[=expand_weighted_fitted_df]{expand_weighted_fitted_df()}}. A \code{bit64::integer64} \code{id} round-trips exactly.
 }
 \details{
 Model presence follows the same rule as \code{\link[=fit_trial_weights_df]{fit_trial_weights_df()}}.

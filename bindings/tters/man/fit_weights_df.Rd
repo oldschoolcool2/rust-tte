@@ -54,8 +54,9 @@ numerator/denominator models (ignored when \code{use_censor} is \code{FALSE}).}
 strata: \code{"none"}, \code{"numerator"}, or \code{"both"}. Case-insensitive.}
 }
 \value{
-A \code{data.frame} with columns \code{id}, \code{period}, \code{weight_factor}. Errors in
-the core engine (including weight-fit failures) surface as R errors.
+A \code{data.frame} with columns \code{id}, \code{period}, \code{weight_factor} (a 64-bit
+integer \code{id} is returned as \code{bit64::integer64}). Errors in the core engine
+(including weight-fit failures) surface as R errors.
 }
 \description{
 Fit the inverse-probability weight factor for an in-memory cohort and return the

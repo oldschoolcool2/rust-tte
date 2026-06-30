@@ -39,4 +39,5 @@ the core engine surface as R errors.
 \description{
 Both the cohort and the per-\verb{(id, period)} factor table (\verb{id, period, weight_factor}) are passed as R \code{data.frame}s; the engine expands under
 \code{estimand}, joins the factors, and accumulates the cumulative-product \code{weight}.
+A 64-bit integer \code{id} (\code{bit64::integer64}) in either frame round-trips exactly.
 }

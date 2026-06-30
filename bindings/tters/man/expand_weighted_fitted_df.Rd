@@ -6,7 +6,8 @@
 weighted trial frame as a \code{data.frame} — a raw cohort \code{data.frame} straight to a
 weighted, expanded \code{data.frame} in one call (no pre-computed factor table, no
 intermediate Parquet). The frame-in/frame-out analogue of
-\code{expand_weighted_fitted_parquet()}.}
+\code{expand_weighted_fitted_parquet()}. A 64-bit integer \code{id} (\code{bit64::integer64})
+round-trips exactly.}
 \usage{
 expand_weighted_fitted_df(
   cohort,
@@ -64,5 +65,6 @@ Fit the IPW weights for an in-memory cohort, expand, apply, and return the
 weighted trial frame as a \code{data.frame} — a raw cohort \code{data.frame} straight to a
 weighted, expanded \code{data.frame} in one call (no pre-computed factor table, no
 intermediate Parquet). The frame-in/frame-out analogue of
-\code{expand_weighted_fitted_parquet()}.
+\code{expand_weighted_fitted_parquet()}. A 64-bit integer \code{id} (\code{bit64::integer64})
+round-trips exactly.
 }

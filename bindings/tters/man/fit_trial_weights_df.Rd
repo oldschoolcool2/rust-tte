@@ -54,7 +54,8 @@ Frame-in / frame-out analogue of \code{\link[=fit_trial_weights]{fit_trial_weigh
 switching and/or IPCW censoring models in Rust from an in-memory cohort
 \code{data.frame} and returns the per-\verb{(id, period)} factor table as a \code{data.frame}
 (\code{id}, \code{period}, \code{weight_factor}) — the table \code{\link[=expand_trial_weighted_df]{expand_trial_weighted_df()}}
-consumes. Wraps the extendr-generated \code{\link[=fit_weights_df]{fit_weights_df()}}.
+consumes. Wraps the extendr-generated \code{\link[=fit_weights_df]{fit_weights_df()}}. A \code{bit64::integer64}
+\code{id} round-trips exactly (the returned \code{id} is \code{integer64}).
 }
 \details{
 Model presence follows the same \code{NULL}-driven rule as \code{\link[=fit_trial_weights]{fit_trial_weights()}}: a

@@ -18,7 +18,8 @@ expand_trial_df(
 }
 \arguments{
 \item{cohort}{A \code{data.frame} (or tibble / \code{data.table} / Arrow \code{Table}) of long
-person-time rows. Coerced with \code{as.data.frame()}.}
+person-time rows. Coerced with \code{as.data.frame()}, which preserves an
+\code{integer64} column's class.}
 
 \item{id_col, period_col, treatment_col, eligible_col, outcome_col}{Column names.
 Defaults match the TrialEmulation conventions.}
@@ -31,12 +32,18 @@ Defaults match the TrialEmulation conventions.}
 \value{
 A \code{data.frame} with the six structural columns
 (\code{id}, \code{trial_period}, \code{followup_time}, \code{assigned_treatment}, \code{treatment},
-\code{outcome}).
+\code{outcome}); an \code{integer64} input column is returned as \code{integer64}.
 }
 \description{
 Frame-in / frame-out analogue of \code{\link[=expand_trial]{expand_trial()}}: takes an in-memory cohort
 \code{data.frame} and returns the expanded trial frame as a \code{data.frame}, with no
 intermediate Parquet. Wraps the extendr-generated \code{\link[=expand_df]{expand_df()}}.
+}
+\details{
+Column dtypes are preserved exactly: R \code{integer} <-> Polars \code{Int32}, \code{double}
+<-> \code{Float64}, and \code{bit64::integer64} <-> \code{Int64}. A 64-bit integer column
+(e.g. a large \code{id}) round-trips exactly as \code{integer64} with no precision loss
+above \code{2^53} (a pure-safe bit reinterpret, not a numeric cast).
 }
 \examples{
 \dontrun{

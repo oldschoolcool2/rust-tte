@@ -318,8 +318,14 @@ expand_trial_weighted_fitted <- function(input_path,
 #' `data.frame` and returns the expanded trial frame as a `data.frame`, with no
 #' intermediate Parquet. Wraps the extendr-generated [expand_df()].
 #'
+#' Column dtypes are preserved exactly: R `integer` <-> Polars `Int32`, `double`
+#' <-> `Float64`, and `bit64::integer64` <-> `Int64`. A 64-bit integer column
+#' (e.g. a large `id`) round-trips exactly as `integer64` with no precision loss
+#' above `2^53` (a pure-safe bit reinterpret, not a numeric cast).
+#'
 #' @param cohort A `data.frame` (or tibble / `data.table` / Arrow `Table`) of long
-#'   person-time rows. Coerced with `as.data.frame()`.
+#'   person-time rows. Coerced with `as.data.frame()`, which preserves an
+#'   `integer64` column's class.
 #' @param id_col,period_col,treatment_col,eligible_col,outcome_col Column names.
 #'   Defaults match the TrialEmulation conventions.
 #' @param first_period,last_period Inclusive integer period bounds.
@@ -327,7 +333,7 @@ expand_trial_weighted_fitted <- function(input_path,
 #'   `"PP"` (per-protocol, censor each trial at the first treatment deviation).
 #' @return A `data.frame` with the six structural columns
 #'   (`id`, `trial_period`, `followup_time`, `assigned_treatment`, `treatment`,
-#'   `outcome`).
+#'   `outcome`); an `integer64` input column is returned as `integer64`.
 #' @seealso [expand_trial()] for the Parquet-path equivalent.
 #' @examples
 #' \dontrun{
@@ -364,7 +370,8 @@ expand_trial_df <- function(cohort,
 #' Frame-in / frame-out analogue of [expand_trial_weighted()]: takes an in-memory
 #' cohort `data.frame` and a pre-computed factor `data.frame`
 #' (`id`, `period`, `weight_factor`), and returns the weighted, expanded frame as a
-#' `data.frame`. Wraps the extendr-generated [expand_weighted_df()].
+#' `data.frame`. Wraps the extendr-generated [expand_weighted_df()]. A
+#' `bit64::integer64` `id` in either frame round-trips exactly.
 #'
 #' @param cohort A `data.frame` (or tibble / `data.table` / Arrow `Table`) of long
 #'   person-time rows. Coerced with `as.data.frame()`.
@@ -415,7 +422,8 @@ expand_trial_weighted_df <- function(cohort,
 #' switching and/or IPCW censoring models in Rust from an in-memory cohort
 #' `data.frame` and returns the per-`(id, period)` factor table as a `data.frame`
 #' (`id`, `period`, `weight_factor`) — the table [expand_trial_weighted_df()]
-#' consumes. Wraps the extendr-generated [fit_weights_df()].
+#' consumes. Wraps the extendr-generated [fit_weights_df()]. A `bit64::integer64`
+#' `id` round-trips exactly (the returned `id` is `integer64`).
 #'
 #' Model presence follows the same `NULL`-driven rule as [fit_trial_weights()]: a
 #' switching model is fitted when either `switch_*` covariate vector is non-`NULL`;
@@ -497,7 +505,7 @@ fit_trial_weights_df <- function(cohort,
 #' expanding under `estimand`, and accumulating the fitted factor into the
 #' cumulative `weight`. The six structural columns are bit-exact; `weight` matches
 #' the Oracle within the staged ~1e-6 tolerance. Wraps the extendr-generated
-#' [expand_weighted_fitted_df()].
+#' [expand_weighted_fitted_df()]. A `bit64::integer64` `id` round-trips exactly.
 #'
 #' Model presence follows the same rule as [fit_trial_weights_df()].
 #'
