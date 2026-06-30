@@ -118,7 +118,7 @@ jobs:
       - name: testthat self-test against inst/extdata
         working-directory: ${{ runner.temp }}
         run: |
-          tar xzf tters_*.tar.gz tters/tests
+          tar xzf tters_*.tar.gz
           R_LIBS_USER="${{ runner.temp }}/lib" Rscript -e '
             .libPaths(c(file.path(Sys.getenv("RUNNER_TEMP"), "lib"), .libPaths()))
             library(testthat); library(tters)
