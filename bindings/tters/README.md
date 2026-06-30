@@ -1,9 +1,11 @@
 # tters — R binding for `tte-expand` (extendr)
 
 `tters` is the R companion package that exposes the `tte-expand` Rust core crate
-to R via [extendr](https://extendr.github.io/). It is the **Phase 4** deliverable
-(see [`../../ROADMAP.md`](../../ROADMAP.md)); the files here are a **scaffold** and
-the engine they call is not yet implemented.
+to R via [extendr](https://extendr.github.io/). It reproduces, bit-for-bit, the
+sequential trial-emulation data expansion of the
+[`TrialEmulation`](https://cran.r-project.org/package=TrialEmulation) R package,
+with a Parquet path, an in-memory `data.frame` path, and a `TrialEmulation`
+companion backend (see [`../../ROADMAP.md`](../../ROADMAP.md)).
 
 ## How it fits together
 
@@ -26,6 +28,50 @@ it its own workspace root with its own `Cargo.lock`. This is required so
 is excluded from the repo-root workspace (`exclude = ["bindings/tters"]` in the
 root `Cargo.toml`) and is therefore **not** linted by the main CI `--workspace`
 clippy job — extendr's macro-expanded FFI would otherwise trip pedantic lints.
+
+## Companion backend for `TrialEmulation`
+
+`tters` plugs into upstream `TrialEmulation`'s `te_datastore` extension API so a
+`trial_sequence()` pipeline runs the expensive **expansion in Rust** while
+estimation (sampling + the marginal structural model) stays in R, consuming the
+Rust output **bit-identically** to the default path. This is `Suggests`-level and
+opt-in: `TrialEmulation` is never an `Imports`, and the backend is a no-op for
+anyone who does not call it. Validated against `TrialEmulation` **v0.0.4.11**.
+
+Set up the trial sequence exactly as for `TrialEmulation::expand_trials()`, then
+call `expand_trials_tters()` instead — everything downstream is unchanged:
+
+```r
+library(TrialEmulation)
+library(tters)
+data("data_censored")
+
+trial <- trial_sequence("ITT") |>
+  set_data(data = data_censored) |>
+  set_censor_weight_model(
+    censor_event = "censored", numerator = ~x2, denominator = ~ x2 + x1,
+    pool_models = "numerator",
+    model_fitter = stats_glm_logit(save_path = tempfile())
+  ) |>
+  calculate_weights() |>                       # weight MODELS fit in R
+  set_outcome_model(adjustment_terms = ~x2) |>
+  set_expansion_options(output = save_to_tters(), chunk_size = 0)
+
+trial <- expand_trials_tters(trial)            # the EXPANSION runs in Rust
+trial <- load_expanded_data(trial, seed = 1234, p_control = 0.5)
+trial <- fit_msm(trial)                        # estimation stays in R
+```
+
+The produced frame is byte-equivalent to `TrialEmulation::expand_trials()`
+(structural columns bit-exact, `weight` to within machine precision), so
+`load_expanded_data()`, `sample_controls()`, and `fit_msm()` behave identically.
+The split is deliberate: **Rust owns the deterministic data transformation; R
+owns statistical estimation.** The per-period weight `wt` computed by
+`calculate_weights()` is read verbatim — Rust performs only its deterministic
+accumulation. If `TrialEmulation` (or the Rust build) is unavailable, or for the
+not-yet-supported AT estimand, `expand_trials_tters()` falls back to
+`TrialEmulation::expand_trials()` with a message (`fallback = FALSE` to force the
+Rust path).
 
 ## Regenerating with rextendr
 
