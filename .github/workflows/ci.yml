@@ -52,6 +52,16 @@ jobs:
     # tests stable AND beta instead of silently running 1.95.0 for both.
     env:
       RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
+      # Strip debug info from the test/bench link. The dependency tree is large
+      # (Polars + the object_store TLS stack + smartcore + criterion); with full
+      # debuginfo, linking the `--all-targets` binaries can exhaust the runner and
+      # crash the *beta* bundled `rust-lld` with a SIGBUS (an upstream linker bug —
+      # the identical binaries link fine on 1.95.0/stable). debug=0 keeps the link
+      # well under that threshold; `debug-assertions` (and thus test behaviour) are
+      # unaffected, so the matrix still genuinely tests stable AND beta.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_PROFILE_BENCH_DEBUG: "0"
     strategy:
       fail-fast: false
       matrix:
