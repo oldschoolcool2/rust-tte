@@ -31,6 +31,7 @@ docs/
 | [`005-phase-3-weight-application/`](005-phase-3-weight-application/) | Phase-3 weight application: the join + cumulative-product (`cum_prod`/window) design, the per-`(id, period)` factor table recovered from the Oracle weights, the `STRUCTURAL_COLS_WEIGHTED` schema, the 1e-12 tolerance, verification within tolerance, and the ITT/PP-unchanged proof. |
 | [`006-phase-4-extendr-binding/`](006-phase-4-extendr-binding/) | Phase-4 extendr binding (`tters`): the FFI shim exposing estimand selection + weighted expansion to R, the regenerated extendr wrappers / NAMESPACE / man, the toolchain & version reconciliation (extendr 0.9 / rextendr 0.5 / R 4.3.3, MSRV bumped to 1.95), the `R CMD INSTALL` + testthat round-trip reproducing the full battery, and the root-workspace-unchanged proof. |
 | [`007-phase-5-benchmark-certificate/`](007-phase-5-benchmark-certificate/) | Phase-5 benchmark + reproducibility certificate: the pure-cargo certificate generator (recompute every fixture SHA-256 vs the manifests + re-verify equivalence + record Oracle/toolchain pins), the criterion runtime micro-benchmarks, the R-vs-Rust runtime/peak-RSS harness incl. the R-OOM / Rust-OK regime, the Tier-2 whole-pipeline golden (Rust-expand → R-estimate matches upstream), the `make verify` entry point + CI, and the engine-unchanged proof. |
+| [`008-phase-6-weights-in-rust/`](008-phase-6-weights-in-rust/) | Phase-6 weight *fitting* (optional v2): producing the per-`(id, period)` factor table in Rust by porting the legacy `data_manipulation` + the compiled `censor_func` state machine and binding `smartcore`'s unregularised logistic solver (chosen via a bake-off vs R `glm`), the staged ~1e-6 fitted-weight tolerance and where exactness ends, the non-default `weights-fit` feature that keeps the `tters` binding lean, the extended certificate, and the Phases-1–5-unchanged proof. |
 
 ### `001-initial-ideations/`
 
@@ -76,3 +77,9 @@ docs/
 | File | What it is |
 |---|---|
 | [`001-phase-5-summary.md`](007-phase-5-benchmark-certificate/001-phase-5-summary.md) | Phase-5 sign-off: the reproducibility certificate (`make verify` recomputes 47/47 fixture SHA-256 vs the manifests, re-verifies equivalence, and records Oracle + toolchain pins), the criterion `expand`/`apply_weights` micro-benchmarks, the R-vs-Rust runtime/peak-RSS harness with the R-OOM (≈5×10⁶) / Rust-OK (10⁷ in 2.5 s) regime, the Tier-2 whole-pipeline golden (Rust-expand → R-estimate matches upstream within tolerance), the VERIFY-FIRST findings (criterion/cargo-deny, R timing+RSS method, golden-tier decision, CI scoping), the CI job, and the engine-unchanged proof. |
+
+### `008-phase-6-weights-in-rust/`
+
+| File | What it is |
+|---|---|
+| [`001-phase-6-summary.md`](008-phase-6-weights-in-rust/001-phase-6-summary.md) | Phase-6 sign-off: weight *fitting* in Rust (`fit_weights` / `expand_weighted_fitted_parquet`, behind the non-default `weights-fit` feature) — porting `data_manipulation` + the compiled `censor_func` state machine and binding `smartcore`'s unregularised binomial-logit solver to produce the per-`(id, period)` factor table Phase 3 consumes, the VERIFY-FIRST findings (fixtures = machine-eps reconstruction, the `glm`/`parglm` bake-off → smartcore, the ~60-line `censor_func` port, the staged 1e-6 tolerance, CI), the staged tolerance + where exactness ends, the solver choice + what stays in R, the extended certificate, and the binding-lean / Phases-1–5-unchanged proofs. |
