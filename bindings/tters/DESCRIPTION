@@ -13,6 +13,8 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
     R (>= 4.2)
+Imports:
+    bit64
 Suggests:
     arrow,
     testthat (>= 3.0.0)

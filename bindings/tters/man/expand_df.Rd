@@ -30,12 +30,15 @@ expand_df(
 \item{estimand}{\code{"ITT"} or \code{"PP"}. Case-insensitive.}
 }
 \value{
-A \code{data.frame} with the six structural columns. Errors in the core
-engine surface as R errors.
+A \code{data.frame} with the six structural columns (an \code{integer64} input
+column is returned as \code{integer64}). Errors in the core engine surface as R
+errors.
 }
 \description{
 The cohort arrives as an R \code{data.frame} (a \code{list} of equal-length columns);
 columns are marshalled dtype-exactly into a Polars frame (R \code{integer} ->
-\code{Int32}, \code{double} -> \code{Float64}), expanded by the verified core, and the six
-structural columns are marshalled back to an R \code{data.frame}.
+\code{Int32}, \code{double} -> \code{Float64}, \code{bit64::integer64} -> \code{Int64}), expanded by the
+verified core, and the six structural columns are marshalled back to an R
+\code{data.frame}. A 64-bit integer column (an \code{integer64}, e.g. a large \code{id})
+round-trips exactly via a pure-safe bit reinterpret (no precision loss).
 }

@@ -161,16 +161,19 @@ expand_weighted_fitted_parquet <- function(input_path, output_path, id_col, peri
 #'
 #' The cohort arrives as an R `data.frame` (a `list` of equal-length columns);
 #' columns are marshalled dtype-exactly into a Polars frame (R `integer` ->
-#' `Int32`, `double` -> `Float64`), expanded by the verified core, and the six
-#' structural columns are marshalled back to an R `data.frame`.
+#' `Int32`, `double` -> `Float64`, `bit64::integer64` -> `Int64`), expanded by the
+#' verified core, and the six structural columns are marshalled back to an R
+#' `data.frame`. A 64-bit integer column (an `integer64`, e.g. a large `id`)
+#' round-trips exactly via a pure-safe bit reinterpret (no precision loss).
 #'
 #' @param cohort An R `data.frame` of long person-time rows.
 #' @param id_col,period_col,treatment_col Column names in `cohort`.
 #' @param eligible_col,outcome_col Eligibility / outcome column names.
 #' @param first_period,last_period Inclusive integer bounds on `trial_period`.
 #' @param estimand `"ITT"` or `"PP"`. Case-insensitive.
-#' @return A `data.frame` with the six structural columns. Errors in the core
-#'   engine surface as R errors.
+#' @return A `data.frame` with the six structural columns (an `integer64` input
+#'   column is returned as `integer64`). Errors in the core engine surface as R
+#'   errors.
 #' @export
 expand_df <- function(cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand) .Call(wrap__expand_df, cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand)
 
@@ -181,6 +184,7 @@ expand_df <- function(cohort, id_col, period_col, treatment_col, eligible_col, o
 #' Both the cohort and the per-`(id, period)` factor table (`id, period,
 #' weight_factor`) are passed as R `data.frame`s; the engine expands under
 #' `estimand`, joins the factors, and accumulates the cumulative-product `weight`.
+#' A 64-bit integer `id` (`bit64::integer64`) in either frame round-trips exactly.
 #'
 #' @param cohort An R `data.frame` of long person-time rows.
 #' @param factors An R `data.frame` with columns `id`, `period`, `weight_factor`.
@@ -212,8 +216,9 @@ expand_weighted_df <- function(cohort, factors, id_col, period_col, treatment_co
 #'   numerator/denominator models (ignored when `use_censor` is `FALSE`).
 #' @param pool_censor How the IPCW models are pooled across the previous-treatment
 #'   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
-#' @return A `data.frame` with columns `id`, `period`, `weight_factor`. Errors in
-#'   the core engine (including weight-fit failures) surface as R errors.
+#' @return A `data.frame` with columns `id`, `period`, `weight_factor` (a 64-bit
+#'   integer `id` is returned as `bit64::integer64`). Errors in the core engine
+#'   (including weight-fit failures) surface as R errors.
 #' @export
 fit_weights_df <- function(cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor) .Call(wrap__fit_weights_df, cohort, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor)
 
@@ -221,7 +226,8 @@ fit_weights_df <- function(cohort, id_col, period_col, treatment_col, eligible_c
 #' weighted trial frame as a `data.frame` — a raw cohort `data.frame` straight to a
 #' weighted, expanded `data.frame` in one call (no pre-computed factor table, no
 #' intermediate Parquet). The frame-in/frame-out analogue of
-#' `expand_weighted_fitted_parquet()`.
+#' `expand_weighted_fitted_parquet()`. A 64-bit integer `id` (`bit64::integer64`)
+#' round-trips exactly.
 #'
 #' @param cohort An R `data.frame` of long person-time rows.
 #' @param id_col,period_col,treatment_col Column names in `cohort`.

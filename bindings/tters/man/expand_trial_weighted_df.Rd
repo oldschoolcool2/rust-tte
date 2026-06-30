@@ -39,7 +39,8 @@ A \code{data.frame} with the six structural columns plus \code{weight}.
 Frame-in / frame-out analogue of \code{\link[=expand_trial_weighted]{expand_trial_weighted()}}: takes an in-memory
 cohort \code{data.frame} and a pre-computed factor \code{data.frame}
 (\code{id}, \code{period}, \code{weight_factor}), and returns the weighted, expanded frame as a
-\code{data.frame}. Wraps the extendr-generated \code{\link[=expand_weighted_df]{expand_weighted_df()}}.
+\code{data.frame}. Wraps the extendr-generated \code{\link[=expand_weighted_df]{expand_weighted_df()}}. A
+\code{bit64::integer64} \code{id} in either frame round-trips exactly.
 }
 \examples{
 \dontrun{
