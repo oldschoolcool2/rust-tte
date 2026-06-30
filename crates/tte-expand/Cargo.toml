@@ -18,6 +18,27 @@ autobenches = false
 polars = { workspace = true }
 thiserror = { workspace = true }
 
+# Phase 6 (weight fitting, behind the optional `weights-fit` feature): a mature,
+# pure-Rust binomial-logit solver to fit the IPW switch/censor models, producing
+# the per-(id,period) factor table Phase 3 consumes. Chosen over linfa-logistic /
+# ndarray-glm after an empirical bake-off vs R `glm`: smartcore's unregularised
+# (`alpha = 0`) deterministic L-BFGS reproduced R's IRLS MLE to ~1.6e-8 on every
+# fixture model, it is the smallest tree (permissive Apache-2.0/MIT deps, NO native
+# BLAS/LAPACK or C linkage — unlike ndarray-glm's system OpenBLAS, a cross-machine
+# FP-reproducibility hazard), and `cargo deny` passes. We bind only its logistic
+# fit; robust/sandwich variance and the MSM stay in R (out of scope, like v1).
+# `optional = true` keeps it out of the default build — the `tters` R binding
+# (which never fits weights) stays lean and its lockfile untouched; the engine's
+# `--all-features` CI exercises the fit. default-features = false drops smartcore's
+# serde/datasets features (smaller tree, no extra I/O surface).
+smartcore = { version = "0.3.2", default-features = false, optional = true }
+
+[features]
+# Phase-6 weight FITTING (binds smartcore). Off by default so the R binding and a
+# plain `cargo build` stay solver-free; enable with `--features weights-fit` (root
+# CI runs `--all-features`, so it is always covered there).
+weights-fit = ["dep:smartcore"]
+
 # Integration tests can already use `polars` via the normal dependency above, so
 # no dev-dependency duplication is needed for them.
 

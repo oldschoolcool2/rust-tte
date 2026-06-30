@@ -31,10 +31,17 @@ use std::process::ExitCode;
 use polars::prelude::*;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+#[cfg(feature = "weights-fit")]
+use tte_expand::{CensorWeightSpec, PoolCensor, SwitchWeightSpec, WeightSpec, fit_weights};
 use tte_expand::{Estimand, ExpandOptions, apply_weights, expand};
 
-/// Harness tolerance on `weight` (mirrors `tests/weights.rs::WEIGHT_REL_TOL`).
+/// Harness tolerance on the *applied* `weight` (mirrors `tests/weights.rs`).
 const WEIGHT_REL_TOL: f64 = 1e-12;
+
+/// Staged tolerance on the *fitted* `weight` (Phase 6 `weights-fit`): the bound
+/// `smartcore` solver converges to R `glm`'s MLE, not bit-for-bit (ADR-2). Mirrors
+/// `fit::tests::FITTED_WEIGHT_REL_TOL`. Observed worst on the fixtures ≈3.4e-7.
+const FITTED_WEIGHT_REL_TOL: f64 = 1e-6;
 
 fn repo_root() -> PathBuf {
     // `CARGO_MANIFEST_DIR` is `crates/tte-expand`; the repo root is two up.
@@ -209,6 +216,48 @@ fn spot_weighted(
     }
 }
 
+/// Live re-verification of the Phase-6 **fitted** weight path: fit the IPW models
+/// in Rust (no pre-computed factor table), apply them, and check `weight` against
+/// the Oracle within [`FITTED_WEIGHT_REL_TOL`]. Structural columns stay bit-exact.
+#[cfg(feature = "weights-fit")]
+fn spot_fitted(
+    root: &Path,
+    label: &str,
+    input_rel: &str,
+    expected_rel: &str,
+    estimand: Estimand,
+    spec: &WeightSpec,
+) -> SpotCheck {
+    let est = if estimand == Estimand::Itt {
+        "ITT"
+    } else {
+        "PP"
+    };
+    let input = root.join(input_rel);
+    let expected = read_parquet(&root.join(expected_rel));
+    let scan = |p: &Path| {
+        LazyFrame::scan_parquet(
+            PlRefPath::new(p.to_str().expect("utf-8")),
+            ScanArgsParquet::default(),
+        )
+        .expect("scan")
+    };
+    let opts = estimand_opts(estimand);
+    let factors = fit_weights(scan(&input), &opts, spec).expect("fit_weights");
+    let actual = apply_weights(expand(scan(&input), &opts).expect("expand"), factors, &opts)
+        .expect("apply_weights")
+        .collect()
+        .expect("collect");
+    let worst = worst_weight_rel(&actual, &expected);
+    SpotCheck {
+        label: label.to_owned(),
+        estimand: est,
+        rows: actual.height(),
+        structural_ok: structural_equal(&actual, &expected),
+        weight: Some((worst <= FITTED_WEIGHT_REL_TOL, worst)),
+    }
+}
+
 fn main() -> ExitCode {
     let root = repo_root();
     let mut ok = true;
@@ -270,6 +319,44 @@ fn main() -> ExitCode {
         "fixtures/weights/expected_high_switching_pp_weighted.parquet",
         Estimand::PerProtocol,
     ));
+
+    // Phase-6 fitted-weight checks (only with `--features weights-fit`): fit the
+    // IPW models in Rust and assert `weight` within FITTED_WEIGHT_REL_TOL.
+    let fitted_checked = cfg!(feature = "weights-fit");
+    #[cfg(feature = "weights-fit")]
+    {
+        spots.push(spot_fitted(
+            &root,
+            "weights-fit: data_censored (ITT-IPCW)",
+            "fixtures/weights/input_data_censored.parquet",
+            "fixtures/weights/expected_data_censored_itt_weighted.parquet",
+            Estimand::Itt,
+            &WeightSpec::ipcw(CensorWeightSpec::new(
+                "censored",
+                ["x2"],
+                ["x2"],
+                PoolCensor::Numerator,
+            )),
+        ));
+        spots.push(spot_fitted(
+            &root,
+            "weights-fit: data_censored (PP switch+IPCW)",
+            "fixtures/weights/input_data_censored.parquet",
+            "fixtures/weights/expected_data_censored_pp_weighted.parquet",
+            Estimand::PerProtocol,
+            &WeightSpec::switching(SwitchWeightSpec::new(["x2"], ["x2", "x1"])).with_censor(
+                CensorWeightSpec::new("censored", ["x2"], ["x2", "x1"], PoolCensor::None),
+            ),
+        ));
+        spots.push(spot_fitted(
+            &root,
+            "weights-fit: high_switching (PP switch)",
+            "fixtures/scenarios/input_high_switching.parquet",
+            "fixtures/weights/expected_high_switching_pp_weighted.parquet",
+            Estimand::PerProtocol,
+            &WeightSpec::switching(SwitchWeightSpec::new(["x2"], ["x2", "x1"])),
+        ));
+    }
 
     // --- Fixture integrity (recompute SHA-256, compare to manifests) -------
     let mut integrity_rows = String::new();
@@ -363,6 +450,22 @@ fn main() -> ExitCode {
             weight_cell
         );
     }
+    let _ = writeln!(
+        report,
+        "\n{}",
+        if fitted_checked {
+            format!(
+                "The `weights-fit:` rows *fit* the IPW models in Rust (Phase 6, \
+                 bound `smartcore` solver) and check `weight` within \
+                 **{FITTED_WEIGHT_REL_TOL:e}** relative; the others use the \
+                 pre-computed factor table within {WEIGHT_REL_TOL:e}."
+            )
+        } else {
+            "Phase-6 fitted-weight checks were skipped (built without \
+             `--features weights-fit`)."
+                .to_owned()
+        }
+    );
 
     let _ = writeln!(report, "\n## 2. Oracle provenance\n");
     let _ = writeln!(
@@ -400,15 +503,23 @@ fn main() -> ExitCode {
          | R (Oracle) | `{r_ver}` |"
     );
 
-    let _ = writeln!(report, "\n## 5. Tolerance contract\n");
+    let _ = writeln!(
+        report,
+        "\n## 5. Tolerance contract (where exactness ends)\n"
+    );
     let _ = writeln!(
         report,
         "- Expansion / per-protocol censoring (which rows survive): **exact** \
          (integer + categorical; a diff is a bug).\n\
-         - Weight application: **exact** structural join, **{WEIGHT_REL_TOL:e}** \
-         relative on the float `weight` product.\n\
-         - Statistical estimation (`glm`/`parglm`/`sandwich`) stays in R and is \
-         out of scope for the engine."
+         - Weight *application*: **exact** structural join, **{WEIGHT_REL_TOL:e}** \
+         relative on the float `weight` product (the engine redoes the cumulative \
+         product and may reassociate).\n\
+         - Weight *fitting* (Phase 6, `weights-fit` feature): the bound `smartcore` \
+         logistic solver reproduces R `glm`/`parglm` within **{FITTED_WEIGHT_REL_TOL:e}** \
+         relative on the fitted `weight` — its L-BFGS converges to the same MLE as \
+         R's IRLS, not bit-for-bit (observed worst on the fixtures ≈3.4e-7).\n\
+         - Robust/sandwich variance and the MSM coefficient estimation stay in R \
+         and are out of scope for the engine."
     );
 
     let _ = writeln!(report, "\n## 6. Reproduce\n\n```sh\nmake verify\n```\n");
