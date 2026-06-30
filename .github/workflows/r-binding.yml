@@ -119,7 +119,9 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           tar xzf tters_*.tar.gz
-          R_LIBS_USER="${{ runner.temp }}/lib" Rscript -e '
+          # Prepend the tters-only library to the DEFAULT paths (which hold
+          # testthat/arrow); do NOT override R_LIBS_USER, or those go missing.
+          Rscript -e '
             .libPaths(c(file.path(Sys.getenv("RUNNER_TEMP"), "lib"), .libPaths()))
             library(testthat); library(tters)
             Sys.unsetenv("TTERS_FIXTURE_DIR")
