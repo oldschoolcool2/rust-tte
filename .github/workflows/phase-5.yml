@@ -46,7 +46,7 @@ jobs:
     name: reproducibility certificate + bench smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # rust-toolchain.toml pins 1.95.0; rustup auto-installs it when cargo runs,
       # so @stable just provides rustup.
@@ -64,7 +64,7 @@ jobs:
 
       # Publish the generated certificate as a build artifact.
       - name: upload certificate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reproducibility-certificate
           path: report/certificate.md
