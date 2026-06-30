@@ -43,6 +43,19 @@ const COL_PERIOD: &str = "period";
 /// engine joins and then accumulates (see [`apply_weights`]).
 const COL_WEIGHT_FACTOR: &str = "weight_factor";
 
+/// Phase 6 (optional v2): weight-model *fitting* — produce the per-`(id, period)`
+/// factor table that [`apply_weights`] consumes, by binding a mature logistic
+/// solver (no hand-rolled IRLS; robust/sandwich variance stays in R). Gated behind
+/// the non-default `weights-fit` feature so the R binding and a plain build stay
+/// solver-free; enable with `--features weights-fit` (CI runs `--all-features`).
+#[cfg(feature = "weights-fit")]
+mod fit;
+#[cfg(feature = "weights-fit")]
+pub use fit::{
+    CensorWeightSpec, PoolCensor, SwitchWeightSpec, WeightSpec, expand_weighted_fitted_parquet,
+    fit_weights, fit_weights_parquet,
+};
+
 /// Causal estimand selecting whether follow-up is artificially censored at the
 /// first treatment deviation.
 ///
@@ -76,6 +89,11 @@ pub enum ExpandError {
     /// The supplied [`ExpandOptions`] were invalid (e.g. `first_period > last_period`).
     #[error("invalid expansion options: {0}")]
     InvalidOptions(String),
+    /// A weight-model fit failed: a referenced column was absent, a design matrix
+    /// was empty/degenerate, or the bound logistic solver did not converge
+    /// (Phase 6 `weights-fit` feature). Carries a human-readable reason.
+    #[error("weight fit error: {0}")]
+    WeightFit(String),
 }
 
 /// Convenience alias for results produced by this crate.
