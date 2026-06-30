@@ -28,7 +28,7 @@ test:
 	$(CARGO) test --workspace --all-features --doc --locked
 
 certificate:
-	$(CARGO) test --bench certificate --locked
+	$(CARGO) test --bench certificate --features weights-fit --locked
 
 bench:
 	$(CARGO) bench --bench expand
