@@ -23,7 +23,15 @@ extendr-api = "0.9"
 # Path dependency on the verified core crate. Relative to THIS Cargo.toml
 # (bindings/tters/src/rust/): four levels up reaches the repo root, then
 # crates/tte-expand.
-tte-expand = { path = "../../../../crates/tte-expand" }
+#
+# Phase 7 enables the `weights-fit` feature so the binding can FIT the IPW
+# switch/IPCW models in Rust end-to-end (Phase 6 surface), not merely apply a
+# pre-computed factor table. This pulls `smartcore` — the pure-Rust binomial-logit
+# solver already justified in Phase 6 (no native BLAS/LAPACK, permissive deps) —
+# into the binding's dependency tree, so `src/rust/Cargo.lock` now records it.
+# That lockfile change is the deliberate converse of Phase 6, which kept this
+# binding lockfile solver-free.
+tte-expand = { path = "../../../../crates/tte-expand", features = ["weights-fit"] }
 
 [profile.release]
 lto = true
