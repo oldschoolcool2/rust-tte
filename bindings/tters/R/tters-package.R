@@ -109,3 +109,197 @@ expand_trial_weighted <- function(input_path,
   )
   invisible(output_path)
 }
+
+# Internal: resolve the NULL-driven ergonomic weight arguments into the flat
+# `(use_*, character-vector)` form the extendr shims expect. A switching model is
+# present iff either switch covariate vector is supplied; an IPCW censoring model
+# is present iff `censor_col` is supplied. `NULL` covariate vectors collapse to
+# `character(0)` (an intercept-only model); an absent component is dropped, not
+# emptied. Not exported.
+.tters_weight_spec <- function(switch_numerator, switch_denominator,
+                               censor_col, censor_numerator, censor_denominator) {
+  as_chr <- function(x) if (is.null(x)) character(0) else as.character(x)
+  use_switch <- !is.null(switch_numerator) || !is.null(switch_denominator)
+  use_censor <- !is.null(censor_col)
+  if (use_censor) {
+    stopifnot(is.character(censor_col), length(censor_col) == 1L)
+  }
+  list(
+    use_switch = use_switch,
+    switch_numerator = as_chr(switch_numerator),
+    switch_denominator = as_chr(switch_denominator),
+    use_censor = use_censor,
+    censor_col = if (use_censor) as.character(censor_col) else "",
+    censor_numerator = as_chr(censor_numerator),
+    censor_denominator = as_chr(censor_denominator)
+  )
+}
+
+#' Fit inverse-probability weights for a target-trial cohort (ergonomic wrapper)
+#'
+#' User-facing wrapper around the extendr-generated [fit_weights_parquet()] that
+#' *fits* the IPW switching and/or IPCW censoring models in Rust and writes the
+#' per-`(id, period)` factor table (`id, period, weight_factor`) — the table
+#' [expand_trial_weighted()] consumes. Unlike that pre-computed-factor path, here
+#' the weight *models* are fitted in Rust (the Phase-6 `weights-fit` surface): a
+#' faithful port of `TrialEmulation`'s design preparation plus a deterministic
+#' binomial-logit solver. Robust/sandwich variance and the marginal structural
+#' model stay in R.
+#'
+#' A switching model is fitted when either `switch_numerator` or
+#' `switch_denominator` is non-`NULL`; an IPCW censoring model is fitted when
+#' `censor_col` is non-`NULL`. Covariates are character vectors of column names;
+#' `character(0)` (or `NULL`) yields an intercept-only model.
+#'
+#' @param input_path Path to an existing input Parquet cohort (long person-time).
+#' @param output_path Path to write the `(id, period, weight_factor)` Parquet.
+#' @param id_col,period_col,treatment_col,eligible_col,outcome_col Column names.
+#'   Defaults match the TrialEmulation conventions.
+#' @param first_period,last_period Inclusive integer period bounds.
+#' @param estimand `"ITT"` or `"PP"`. Per-protocol runs the artificial-censoring
+#'   state machine and the switching models; intention-to-treat skips both.
+#' @param switch_numerator,switch_denominator Character vectors of covariate column
+#'   names for the switching numerator (stabiliser) / denominator models, or `NULL`
+#'   (the default) to omit switching weights.
+#' @param censor_col Name of the `{0,1}` censoring-indicator column; the modelled
+#'   response is `1 - censor_col`. `NULL` (the default) omits IPCW weights.
+#' @param censor_numerator,censor_denominator Character vectors of covariate column
+#'   names for the IPCW numerator / denominator models.
+#' @param pool_censor How the IPCW models are pooled across the previous-treatment
+#'   strata: `"none"`, `"numerator"`, or `"both"`.
+#' @return `output_path`, invisibly.
+#' @seealso [expand_trial_weighted_fitted()] to fit and expand in a single call.
+#' @examples
+#' \dontrun{
+#' # Per-protocol switching weights (numerator ~ x2, denominator ~ x2 + x1):
+#' fit_trial_weights(
+#'   "cohort.parquet", "factors.parquet", estimand = "PP",
+#'   switch_numerator = "x2", switch_denominator = c("x2", "x1")
+#' )
+#' }
+#' @export
+fit_trial_weights <- function(input_path,
+                              output_path,
+                              id_col = "id",
+                              period_col = "period",
+                              treatment_col = "treatment",
+                              eligible_col = "eligible",
+                              outcome_col = "outcome",
+                              first_period = 0L,
+                              last_period = .Machine$integer.max,
+                              estimand = "PP",
+                              switch_numerator = NULL,
+                              switch_denominator = NULL,
+                              censor_col = NULL,
+                              censor_numerator = NULL,
+                              censor_denominator = NULL,
+                              pool_censor = "none") {
+  stopifnot(
+    file.exists(input_path),
+    is.character(output_path), length(output_path) == 1L
+  )
+  spec <- .tters_weight_spec(
+    switch_numerator, switch_denominator,
+    censor_col, censor_numerator, censor_denominator
+  )
+  fit_weights_parquet(
+    input_path = input_path,
+    output_path = output_path,
+    id_col = id_col,
+    period_col = period_col,
+    treatment_col = treatment_col,
+    eligible_col = eligible_col,
+    outcome_col = outcome_col,
+    first_period = as.integer(first_period),
+    last_period = as.integer(last_period),
+    estimand = estimand,
+    use_switch = spec$use_switch,
+    switch_numerator = spec$switch_numerator,
+    switch_denominator = spec$switch_denominator,
+    use_censor = spec$use_censor,
+    censor_col = spec$censor_col,
+    censor_numerator = spec$censor_numerator,
+    censor_denominator = spec$censor_denominator,
+    pool_censor = pool_censor
+  )
+  invisible(output_path)
+}
+
+#' Fit IPW weights and expand a cohort into a weighted trial frame (ergonomic wrapper)
+#'
+#' User-facing wrapper around the extendr-generated
+#' [expand_weighted_fitted_parquet()]. It takes a raw person-time cohort straight
+#' to a weighted, expanded trial frame in one call — fitting the switching and/or
+#' IPCW models in Rust (no pre-computed factor table), expanding under `estimand`,
+#' and accumulating the fitted factor into the cumulative `weight`. The six
+#' structural columns are bit-exact; `weight` matches the Oracle within the staged
+#' ~1e-6 tolerance. Robust/sandwich variance and the marginal structural model
+#' stay in R.
+#'
+#' Model presence follows the same rule as [fit_trial_weights()]: a switching model
+#' is fitted when either `switch_*` covariate vector is non-`NULL`; an IPCW model is
+#' fitted when `censor_col` is non-`NULL`.
+#'
+#' @inheritParams fit_trial_weights
+#' @param output_path Path to write the weighted, expanded Parquet.
+#' @return `output_path`, invisibly.
+#' @seealso [fit_trial_weights()] to write only the `(id, period, weight_factor)`
+#'   factor table.
+#' @examples
+#' \dontrun{
+#' # Per-protocol switch + IPCW censoring, raw cohort to weighted frame in one call:
+#' expand_trial_weighted_fitted(
+#'   "cohort.parquet", "weighted.parquet", estimand = "PP",
+#'   switch_numerator = "x2", switch_denominator = c("x2", "x1"),
+#'   censor_col = "censored",
+#'   censor_numerator = "x2", censor_denominator = c("x2", "x1"),
+#'   pool_censor = "none"
+#' )
+#' }
+#' @export
+expand_trial_weighted_fitted <- function(input_path,
+                                         output_path,
+                                         id_col = "id",
+                                         period_col = "period",
+                                         treatment_col = "treatment",
+                                         eligible_col = "eligible",
+                                         outcome_col = "outcome",
+                                         first_period = 0L,
+                                         last_period = .Machine$integer.max,
+                                         estimand = "PP",
+                                         switch_numerator = NULL,
+                                         switch_denominator = NULL,
+                                         censor_col = NULL,
+                                         censor_numerator = NULL,
+                                         censor_denominator = NULL,
+                                         pool_censor = "none") {
+  stopifnot(
+    file.exists(input_path),
+    is.character(output_path), length(output_path) == 1L
+  )
+  spec <- .tters_weight_spec(
+    switch_numerator, switch_denominator,
+    censor_col, censor_numerator, censor_denominator
+  )
+  expand_weighted_fitted_parquet(
+    input_path = input_path,
+    output_path = output_path,
+    id_col = id_col,
+    period_col = period_col,
+    treatment_col = treatment_col,
+    eligible_col = eligible_col,
+    outcome_col = outcome_col,
+    first_period = as.integer(first_period),
+    last_period = as.integer(last_period),
+    estimand = estimand,
+    use_switch = spec$use_switch,
+    switch_numerator = spec$switch_numerator,
+    switch_denominator = spec$switch_denominator,
+    use_censor = spec$use_censor,
+    censor_col = spec$censor_col,
+    censor_numerator = spec$censor_numerator,
+    censor_denominator = spec$censor_denominator,
+    pool_censor = pool_censor
+  )
+  invisible(output_path)
+}
