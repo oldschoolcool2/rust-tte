@@ -65,4 +65,94 @@ expand_parquet <- function(input_path, output_path, id_col, period_col, treatmen
 #' @export
 expand_weighted_parquet <- function(input_path, factors_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand) .Call(wrap__expand_weighted_parquet, input_path, factors_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand)
 
+#' Fit the inverse-probability **weight factor** for a Parquet cohort in Rust and
+#' write the per-`(id, period)` factor table (`id, period, weight_factor`).
+#'
+#' A thin FFI shim over `tte_expand::fit_weights_parquet` (the Phase-6
+#' `weights-fit` surface). Unlike `expand_weighted_parquet()`, which *applies* a
+#' pre-computed factor table, this *fits* the IPW models in Rust: it ports
+#' `TrialEmulation`'s `data_manipulation` + `censor_func` design preparation and
+#' binds a deterministic binomial-logit solver for the switching and/or IPCW
+#' censoring models, then forms `wt = wt_switch * wtC`. The structural design is
+#' exact; the fitted factors reproduce R `glm` within the staged ~1e-6 tolerance
+#' (ADR-2), not bit-for-bit. Robust/sandwich variance and the marginal structural
+#' model stay in R.
+#'
+#' @param input_path Path to the input Parquet cohort (long person-time).
+#' @param output_path Path where the `(id, period, weight_factor)` table is written.
+#' @param id_col,period_col,treatment_col Column names in the input.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`; per-protocol runs the artificial-censoring
+#'   state machine and (with switching covariates) the switch models.
+#'   Case-insensitive.
+#' @param use_switch Whether to fit per-protocol switching-weight models.
+#' @param switch_numerator,switch_denominator Covariate columns for the switching
+#'   numerator (stabiliser) and denominator models (ignored when `use_switch` is
+#'   `FALSE`).
+#' @param use_censor Whether to fit inverse-probability-of-censoring (IPCW) models.
+#' @param censor_col Name of the `{0,1}` censoring-indicator column; the response
+#'   is `1 - censor_col` (ignored when `use_censor` is `FALSE`).
+#' @param censor_numerator,censor_denominator Covariate columns for the IPCW
+#'   numerator/denominator models (ignored when `use_censor` is `FALSE`).
+#' @param pool_censor How the IPCW models are pooled across the previous-treatment
+#'   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
+#' @return `NULL`, invisibly; the factor table is written to `output_path`. Errors
+#'   in the core engine (including weight-fit failures) surface as R errors.
+#' @examples
+#' \dontrun{
+#' fit_weights_parquet(
+#'   "cohort.parquet", "factors.parquet",
+#'   "id", "period", "treatment", "eligible", "outcome",
+#'   0L, .Machine$integer.max, "PP",
+#'   TRUE, c("x2"), c("x2", "x1"),
+#'   FALSE, "", character(0), character(0), "none"
+#' )
+#' }
+#' @export
+fit_weights_parquet <- function(input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor) .Call(wrap__fit_weights_parquet, input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor)
+
+#' Fit the IPW weights in Rust, expand the cohort, apply the weights, and write
+#' the weighted trial frame — a raw cohort to a weighted, expanded frame in one
+#' call (no pre-computed factor table).
+#'
+#' A thin FFI shim over `tte_expand::expand_weighted_fitted_parquet`: the fully
+#' in-Rust analogue of `expand_weighted_parquet()`. It fits the switching and/or
+#' IPCW models from the spec (as `fit_weights_parquet()` does), expands under
+#' `estimand`, joins and accumulates the fitted factor, and writes the six
+#' structural columns plus the cumulative-product `weight`. Structural columns are
+#' bit-exact; `weight` matches the Oracle within the staged ~1e-6 tolerance
+#' (ADR-2).
+#'
+#' @param input_path Path to the input Parquet cohort (long person-time).
+#' @param output_path Path where the weighted, expanded Parquet is written.
+#' @param id_col,period_col,treatment_col Column names in the input.
+#' @param eligible_col,outcome_col Eligibility / outcome column names.
+#' @param first_period,last_period Inclusive integer bounds on `trial_period`.
+#' @param estimand `"ITT"` or `"PP"`. Case-insensitive.
+#' @param use_switch Whether to fit per-protocol switching-weight models.
+#' @param switch_numerator,switch_denominator Covariate columns for the switching
+#'   numerator/denominator models (ignored when `use_switch` is `FALSE`).
+#' @param use_censor Whether to fit inverse-probability-of-censoring (IPCW) models.
+#' @param censor_col Name of the `{0,1}` censoring-indicator column; the response
+#'   is `1 - censor_col` (ignored when `use_censor` is `FALSE`).
+#' @param censor_numerator,censor_denominator Covariate columns for the IPCW
+#'   numerator/denominator models (ignored when `use_censor` is `FALSE`).
+#' @param pool_censor How the IPCW models are pooled across the previous-treatment
+#'   strata: `"none"`, `"numerator"`, or `"both"`. Case-insensitive.
+#' @return `NULL`, invisibly; the weighted expansion is written to `output_path`.
+#'   Errors in the core engine (including weight-fit failures) surface as R errors.
+#' @examples
+#' \dontrun{
+#' expand_weighted_fitted_parquet(
+#'   "cohort.parquet", "weighted.parquet",
+#'   "id", "period", "treatment", "eligible", "outcome",
+#'   0L, .Machine$integer.max, "PP",
+#'   TRUE, c("x2"), c("x2", "x1"),
+#'   FALSE, "", character(0), character(0), "none"
+#' )
+#' }
+#' @export
+expand_weighted_fitted_parquet <- function(input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor) .Call(wrap__expand_weighted_fitted_parquet, input_path, output_path, id_col, period_col, treatment_col, eligible_col, outcome_col, first_period, last_period, estimand, use_switch, switch_numerator, switch_denominator, use_censor, censor_col, censor_numerator, censor_denominator, pool_censor)
+
 # nolint end
