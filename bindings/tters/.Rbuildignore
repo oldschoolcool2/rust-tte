@@ -14,3 +14,6 @@
 ^src/vendor$
 ^src/rust/vendor$
 ^tests-staging$
+^tools/build-offline-tarball\.sh$
+^tools/rewrite-core-dep\.sh$
+^tools/vendor-extdata\.R$
