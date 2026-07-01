@@ -80,6 +80,7 @@ PreToolUse guards in `.claude/`:
 @.claude/rules/testing.md
 @.claude/rules/security.md
 @.claude/rules/git-workflow.md
+@.claude/rules/clean-code.md
 
 ## Tooling & quality gates
 
@@ -87,11 +88,16 @@ PreToolUse guards in `.claude/`:
   `cargo fmt --all --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `cargo deny check`. (The toolchain is pinned in `rust-toolchain.toml`; if `cargo`
   is missing, install it via `rustup` — formatting hooks degrade silently without it.)
+- **Quality gates:** `make clones` (jscpd duplication, `.jscpd.json`) and
+  `make antipatterns` (semgrep determinism/anti-pattern scan,
+  `.claude/semgrep/agent-antipatterns.yaml`) — run before pushing source
+  changes; `/clean-code` runs the full comment-hygiene + duplication audit.
 - **Pre-commit:** `pre-commit install && pre-commit install --hook-type commit-msg`,
   then `pre-commit run --all-files`. Runs gitleaks, markdownlint, yamllint, shell
   checks, and a fmt/conventional-commit gate. Never `--no-verify`.
 - **CI** (`.github/workflows/`): `ci.yml` (fmt/clippy/test/check/msrv/deny),
-  `secret-scan.yml` (gitleaks), `markdownlint.yml`.
+  `quality.yml` (jscpd + semgrep), `r-binding.yml` (binding fmt/clippy + R
+  installs), `secret-scan.yml` (gitleaks), `markdownlint.yml`.
 - **Secret hygiene:** run `/check-secrets` before pushing anything you're unsure
   about; never commit `.env`/keys (the block-secrets guard + gitleaks enforce this).
 - **Agent guardrails** (`.claude/settings.json` → `.claude/hooks/`): edits to
