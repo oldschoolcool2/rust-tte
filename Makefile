@@ -16,10 +16,10 @@
 CARGO ?= cargo
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 
-.PHONY: help verify test certificate bench bench-smoke curves golden clones clean
+.PHONY: help verify test certificate bench bench-smoke curves golden clones antipatterns clean
 
 help:
-	@printf 'targets: verify | test | certificate | bench | bench-smoke | curves | golden | clones | clean\n'
+	@printf 'targets: verify | test | certificate | bench | bench-smoke | curves | golden | clones | antipatterns | clean\n'
 
 verify: test certificate
 
@@ -50,6 +50,16 @@ golden:
 # copy-paste. Generated files and the immutable tests/ are excluded.
 clones:
 	npx --yes jscpd
+
+# Rust-focused agent-antipattern scan (needs uv; rules in
+# .claude/semgrep/agent-antipatterns.yaml): path-scoped determinism bans
+# (wall-clock / env reads / RNG / hash-order in the transform path) that
+# clippy cannot express, plus the Rust Design Patterns book's
+# deny(warnings) and borrow-checker-clone anti-patterns. --error fails
+# the target on any finding.
+antipatterns:
+	uvx semgrep --config .claude/semgrep/agent-antipatterns.yaml \
+		crates bindings/tters/src/rust/src bench --metrics=off --error
 
 clean:
 	$(CARGO) clean
