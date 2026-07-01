@@ -16,10 +16,10 @@
 CARGO ?= cargo
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 
-.PHONY: help verify test certificate bench bench-smoke curves golden clean
+.PHONY: help verify test certificate bench bench-smoke curves golden clones clean
 
 help:
-	@printf 'targets: verify | test | certificate | bench | bench-smoke | curves | golden | clean\n'
+	@printf 'targets: verify | test | certificate | bench | bench-smoke | curves | golden | clones | clean\n'
 
 verify: test certificate
 
@@ -41,6 +41,15 @@ curves:
 
 golden:
 	bash bench/run_golden.sh
+
+# Copy-paste (clone) detection over the editable Rust + R sources (config in
+# .jscpd.json; needs Node/npx). The 8%-duplicated-lines threshold accepts the
+# deliberate residue — flat FFI shim signatures and argument forwarding in the
+# tters binding, the per-dtype marshalling arms in frame.rs, and the explicit
+# argument pass-through of the R user-facing wrappers — while failing on new
+# copy-paste. Generated files and the immutable tests/ are excluded.
+clones:
+	npx --yes jscpd
 
 clean:
 	$(CARGO) clean
