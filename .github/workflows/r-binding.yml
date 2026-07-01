@@ -47,6 +47,8 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # rust-toolchain.toml pins 1.95.0 + rustfmt/clippy components; @stable
       # just provides rustup.
@@ -78,6 +80,8 @@ jobs:
       TTERS_FIXTURE_DIR: ${{ github.workspace }}/fixtures
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # rust-toolchain.toml pins 1.95.0; rustup auto-installs it when cargo runs
       # in the (detached) binding workspace, so @stable just provides rustup.
@@ -108,7 +112,7 @@ jobs:
   standalone-install:
     name: Standalone (monorepo-absent) install + self-test
     runs-on: ubuntu-latest
-    # Proves the Phase-10 distribution path: a self-contained source tarball
+    # Proves the offline distribution path: a self-contained source tarball
     # (core crate + every Cargo dep vendored) installs with the monorepo
     # unreachable and runs its testthat battery against the vendored
     # inst/extdata subset (not skip()). CARGO_PROFILE_*_DEBUG=0 keeps the
@@ -123,6 +127,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@stable
 

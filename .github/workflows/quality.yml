@@ -29,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # Provides `uvx` for `make antipatterns`; node/npx for `make clones`
       # is preinstalled on ubuntu-latest.

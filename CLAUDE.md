@@ -95,9 +95,10 @@ PreToolUse guards in `.claude/`:
 - **Pre-commit:** `pre-commit install && pre-commit install --hook-type commit-msg`,
   then `pre-commit run --all-files`. Runs gitleaks, markdownlint, yamllint, shell
   checks, and a fmt/conventional-commit gate. Never `--no-verify`.
-- **CI** (`.github/workflows/`): `ci.yml` (fmt/clippy/test/check/msrv/deny),
-  `quality.yml` (jscpd + semgrep), `r-binding.yml` (binding fmt/clippy + R
-  installs), `secret-scan.yml` (gitleaks), `markdownlint.yml`.
+- **CI** (`.github/workflows/`): `ci.yml` (fmt/clippy/test/check/deny +
+  reproducibility certificate/bench-smoke; MSRV == the pinned toolchain, no
+  separate job), `quality.yml` (jscpd + semgrep), `r-binding.yml` (binding
+  fmt/clippy + R installs), `secret-scan.yml` (gitleaks), `markdownlint.yml`.
 - **Secret hygiene:** run `/check-secrets` before pushing anything you're unsure
   about; never commit `.env`/keys (the block-secrets guard + gitleaks enforce this).
 - **Agent guardrails** (`.claude/settings.json` → `.claude/hooks/`): edits to
