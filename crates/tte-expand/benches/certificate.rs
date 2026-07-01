@@ -455,13 +455,13 @@ fn main() -> ExitCode {
         "\n{}",
         if fitted_checked {
             format!(
-                "The `weights-fit:` rows *fit* the IPW models in Rust (Phase 6, \
-                 bound `smartcore` solver) and check `weight` within \
+                "The `weights-fit:` rows *fit* the IPW models in Rust (bound \
+                 `smartcore` solver) and check `weight` within \
                  **{FITTED_WEIGHT_REL_TOL:e}** relative; the others use the \
                  pre-computed factor table within {WEIGHT_REL_TOL:e}."
             )
         } else {
-            "Phase-6 fitted-weight checks were skipped (built without \
+            "Fitted-weight checks were skipped (built without \
              `--features weights-fit`)."
                 .to_owned()
         }
@@ -514,7 +514,7 @@ fn main() -> ExitCode {
          - Weight *application*: **exact** structural join, **{WEIGHT_REL_TOL:e}** \
          relative on the float `weight` product (the engine redoes the cumulative \
          product and may reassociate).\n\
-         - Weight *fitting* (Phase 6, `weights-fit` feature): the bound `smartcore` \
+         - Weight *fitting* (`weights-fit` feature): the bound `smartcore` \
          logistic solver reproduces R `glm`/`parglm` within **{FITTED_WEIGHT_REL_TOL:e}** \
          relative on the fitted `weight` — its L-BFGS converges to the same MLE as \
          R's IRLS, not bit-for-bit (observed worst on the fixtures ≈3.4e-7).\n\

@@ -27,7 +27,7 @@ Live re-verification performed by this generator:
 | `weights-fit: data_censored (PP switch+IPCW)` | PP | 500 | ✅ | ✅ (9.6e-9) |
 | `weights-fit: high_switching (PP switch)` | PP | 8064 | ✅ | ✅ (3.4e-7) |
 
-The `weights-fit:` rows *fit* the IPW models in Rust (Phase 6, bound `smartcore` solver) and check `weight` within **1e-6** relative; the others use the pre-computed factor table within 1e-12.
+The `weights-fit:` rows *fit* the IPW models in Rust (bound `smartcore` solver) and check `weight` within **1e-6** relative; the others use the pre-computed factor table within 1e-12.
 
 ## 2. Oracle provenance
 
@@ -110,7 +110,7 @@ Every manifest-listed fixture's SHA-256 was recomputed and compared to the manif
 
 - Expansion / per-protocol censoring (which rows survive): **exact** (integer + categorical; a diff is a bug).
 - Weight *application*: **exact** structural join, **1e-12** relative on the float `weight` product (the engine redoes the cumulative product and may reassociate).
-- Weight *fitting* (Phase 6, `weights-fit` feature): the bound `smartcore` logistic solver reproduces R `glm`/`parglm` within **1e-6** relative on the fitted `weight` — its L-BFGS converges to the same MLE as R's IRLS, not bit-for-bit (observed worst on the fixtures ≈3.4e-7).
+- Weight *fitting* (`weights-fit` feature): the bound `smartcore` logistic solver reproduces R `glm`/`parglm` within **1e-6** relative on the fitted `weight` — its L-BFGS converges to the same MLE as R's IRLS, not bit-for-bit (observed worst on the fixtures ≈3.4e-7).
 - Robust/sandwich variance and the MSM coefficient estimation stay in R and are out of scope for the engine.
 
 ## 6. Reproduce
