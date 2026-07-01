@@ -170,12 +170,17 @@ fn expand_parquet(
     last_period: i32,
     estimand: &str,
 ) -> Result<()> {
-    let opts = ExpandOptions::new(id_col, period_col, treatment_col, first_period, last_period)
-        .with_eligible_col(eligible_col)
-        .with_outcome_col(outcome_col)
-        .with_estimand(parse_estimand(estimand)?);
-    tte_expand::expand_parquet(input_path, output_path, &opts)
-        .map_err(|e| Error::Other(format!("tte-expand: {e}")))?;
+    let opts = build_options(
+        id_col,
+        period_col,
+        treatment_col,
+        eligible_col,
+        outcome_col,
+        first_period,
+        last_period,
+        estimand,
+    )?;
+    tte_expand::expand_parquet(input_path, output_path, &opts).map_err(core_err)?;
     Ok(())
 }
 
@@ -223,12 +228,18 @@ fn expand_weighted_parquet(
     last_period: i32,
     estimand: &str,
 ) -> Result<()> {
-    let opts = ExpandOptions::new(id_col, period_col, treatment_col, first_period, last_period)
-        .with_eligible_col(eligible_col)
-        .with_outcome_col(outcome_col)
-        .with_estimand(parse_estimand(estimand)?);
+    let opts = build_options(
+        id_col,
+        period_col,
+        treatment_col,
+        eligible_col,
+        outcome_col,
+        first_period,
+        last_period,
+        estimand,
+    )?;
     tte_expand::expand_weighted_parquet(input_path, factors_path, output_path, &opts)
-        .map_err(|e| Error::Other(format!("tte-expand: {e}")))?;
+        .map_err(core_err)?;
     Ok(())
 }
 
@@ -319,8 +330,7 @@ fn fit_weights_parquet(
         &censor_denominator,
         pool_censor,
     )?;
-    tte_expand::fit_weights_parquet(input_path, output_path, &opts, &spec)
-        .map_err(|e| Error::Other(format!("tte-expand: {e}")))?;
+    tte_expand::fit_weights_parquet(input_path, output_path, &opts, &spec).map_err(core_err)?;
     Ok(())
 }
 
@@ -408,7 +418,7 @@ fn expand_weighted_fitted_parquet(
         pool_censor,
     )?;
     tte_expand::expand_weighted_fitted_parquet(input_path, output_path, &opts, &spec)
-        .map_err(|e| Error::Other(format!("tte-expand: {e}")))?;
+        .map_err(core_err)?;
     Ok(())
 }
 

@@ -43,6 +43,43 @@ const WEIGHT_REL_TOL: f64 = 1e-12;
 /// `fit::tests::FITTED_WEIGHT_REL_TOL`. Observed worst on the fixtures ≈3.4e-7.
 const FITTED_WEIGHT_REL_TOL: f64 = 1e-6;
 
+/// Short report label for an estimand ("ITT" / "PP").
+fn est_label(estimand: Estimand) -> &'static str {
+    if estimand == Estimand::Itt {
+        "ITT"
+    } else {
+        "PP"
+    }
+}
+
+/// Scan a Parquet file lazily — the shared spot-check input reader.
+fn scan_parquet_lazy(p: &Path) -> LazyFrame {
+    LazyFrame::scan_parquet(
+        PlRefPath::new(p.to_str().expect("utf-8")),
+        ScanArgsParquet::default(),
+    )
+    .expect("scan")
+}
+
+/// Assemble a weighted spot-check row: structural equality plus the worst
+/// relative `weight` diff judged against `tol`.
+fn weighted_spot_check(
+    label: &str,
+    estimand: Estimand,
+    actual: &DataFrame,
+    expected: &DataFrame,
+    tol: f64,
+) -> SpotCheck {
+    let worst = worst_weight_rel(actual, expected);
+    SpotCheck {
+        label: label.to_owned(),
+        estimand: est_label(estimand),
+        rows: actual.height(),
+        structural_ok: structural_equal(actual, expected),
+        weight: Some((worst <= tol, worst)),
+    }
+}
+
 fn repo_root() -> PathBuf {
     // `CARGO_MANIFEST_DIR` is `crates/tte-expand`; the repo root is two up.
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -146,22 +183,13 @@ fn worst_weight_rel(actual: &DataFrame, expected: &DataFrame) -> f64 {
 
 fn spot_structural(root: &Path, subdir: &str, name: &str, estimand: Estimand) -> SpotCheck {
     let label = format!("{subdir}/{name}");
-    let est = if estimand == Estimand::Itt {
-        "ITT"
-    } else {
-        "PP"
-    };
+    let est = est_label(estimand);
     let input = root.join(format!("fixtures/{subdir}/input_{name}.parquet"));
     let expected = root.join(format!(
         "fixtures/{subdir}/expected_{name}_{}.parquet",
         est.to_lowercase()
     ));
-    let lf = LazyFrame::scan_parquet(
-        PlRefPath::new(input.to_str().expect("utf-8")),
-        ScanArgsParquet::default(),
-    )
-    .expect("scan input");
-    let actual = expand(lf, &estimand_opts(estimand))
+    let actual = expand(scan_parquet_lazy(&input), &estimand_opts(estimand))
         .expect("expand")
         .collect()
         .expect("collect");
@@ -183,37 +211,18 @@ fn spot_weighted(
     expected_rel: &str,
     estimand: Estimand,
 ) -> SpotCheck {
-    let est = if estimand == Estimand::Itt {
-        "ITT"
-    } else {
-        "PP"
-    };
     let input = root.join(input_rel);
     let factors = root.join(factors_rel);
     let expected = read_parquet(&root.join(expected_rel));
-    let scan = |p: &Path| {
-        LazyFrame::scan_parquet(
-            PlRefPath::new(p.to_str().expect("utf-8")),
-            ScanArgsParquet::default(),
-        )
-        .expect("scan")
-    };
     let actual = apply_weights(
-        expand(scan(&input), &estimand_opts(estimand)).expect("expand"),
-        scan(&factors),
+        expand(scan_parquet_lazy(&input), &estimand_opts(estimand)).expect("expand"),
+        scan_parquet_lazy(&factors),
         &estimand_opts(estimand),
     )
     .expect("apply_weights")
     .collect()
     .expect("collect");
-    let worst = worst_weight_rel(&actual, &expected);
-    SpotCheck {
-        label: label.to_owned(),
-        estimand: est,
-        rows: actual.height(),
-        structural_ok: structural_equal(&actual, &expected),
-        weight: Some((worst <= WEIGHT_REL_TOL, worst)),
-    }
+    weighted_spot_check(label, estimand, &actual, &expected, WEIGHT_REL_TOL)
 }
 
 /// Live re-verification of the **fitted** weight path (`weights-fit`): fit the IPW models
@@ -228,34 +237,19 @@ fn spot_fitted(
     estimand: Estimand,
     spec: &WeightSpec,
 ) -> SpotCheck {
-    let est = if estimand == Estimand::Itt {
-        "ITT"
-    } else {
-        "PP"
-    };
     let input = root.join(input_rel);
     let expected = read_parquet(&root.join(expected_rel));
-    let scan = |p: &Path| {
-        LazyFrame::scan_parquet(
-            PlRefPath::new(p.to_str().expect("utf-8")),
-            ScanArgsParquet::default(),
-        )
-        .expect("scan")
-    };
     let opts = estimand_opts(estimand);
-    let factors = fit_weights(scan(&input), &opts, spec).expect("fit_weights");
-    let actual = apply_weights(expand(scan(&input), &opts).expect("expand"), factors, &opts)
-        .expect("apply_weights")
-        .collect()
-        .expect("collect");
-    let worst = worst_weight_rel(&actual, &expected);
-    SpotCheck {
-        label: label.to_owned(),
-        estimand: est,
-        rows: actual.height(),
-        structural_ok: structural_equal(&actual, &expected),
-        weight: Some((worst <= FITTED_WEIGHT_REL_TOL, worst)),
-    }
+    let factors = fit_weights(scan_parquet_lazy(&input), &opts, spec).expect("fit_weights");
+    let actual = apply_weights(
+        expand(scan_parquet_lazy(&input), &opts).expect("expand"),
+        factors,
+        &opts,
+    )
+    .expect("apply_weights")
+    .collect()
+    .expect("collect");
+    weighted_spot_check(label, estimand, &actual, &expected, FITTED_WEIGHT_REL_TOL)
 }
 
 fn main() -> ExitCode {

@@ -43,6 +43,18 @@ const COL_PERIOD: &str = "period";
 /// engine joins and then accumulates (see [`apply_weights`]).
 const COL_WEIGHT_FACTOR: &str = "weight_factor";
 
+/// Evaluate `expr` as a window function over each `(id, trial_period)` emulated
+/// trial, ordered explicitly by `followup_time` so the result is independent of
+/// physical row order (determinism) — the canonical within-trial window shared
+/// by the per-protocol censoring cumulative and the weight cumulative product.
+fn over_trial_window(expr: Expr, id: &str) -> PolarsResult<Expr> {
+    expr.over_with_options(
+        Some(vec![col(id), col(COL_TRIAL_PERIOD)]),
+        Some((vec![col(COL_FOLLOWUP_TIME)], SortOptions::default())),
+        WindowMapping::default(),
+    )
+}
+
 /// Weight-model *fitting* — produce the per-`(id, period)`
 /// factor table that [`apply_weights`] consumes, by binding a mature logistic
 /// solver (no hand-rolled IRLS; robust/sandwich variance stays in R). Gated behind
@@ -284,16 +296,14 @@ pub fn expand(input: LazyFrame, options: &ExpandOptions) -> Result<LazyFrame> {
         // makes the cumulative independent of physical row order (determinism).
         Estimand::PerProtocol => {
             const COL_CUMDEV: &str = "__tte_cumulative_deviation";
-            let cumulative_deviation = col(treatment)
-                .neq(col(COL_ASSIGNED_TREATMENT))
-                .cast(DataType::Int32)
-                .cum_max(false)
-                .over_with_options(
-                    Some(vec![col(id), col(COL_TRIAL_PERIOD)]),
-                    Some((vec![col(COL_FOLLOWUP_TIME)], SortOptions::default())),
-                    WindowMapping::default(),
-                )?
-                .alias(COL_CUMDEV);
+            let cumulative_deviation = over_trial_window(
+                col(treatment)
+                    .neq(col(COL_ASSIGNED_TREATMENT))
+                    .cast(DataType::Int32)
+                    .cum_max(false),
+                id,
+            )?
+            .alias(COL_CUMDEV);
             let censored = expanded
                 .with_column(cumulative_deviation)
                 .filter(col(COL_CUMDEV).eq(lit(0i32)))
@@ -310,6 +320,31 @@ pub fn expand(input: LazyFrame, options: &ExpandOptions) -> Result<LazyFrame> {
     }
 }
 
+/// Scan the Parquet file at `path` lazily, rejecting a non-UTF-8 path with a
+/// precise [`ExpandError::InvalidOptions`] that names the offending argument
+/// (`what` is the argument's role, e.g. `"input"` or `"factors"`).
+pub(crate) fn scan_parquet_path(path: impl AsRef<Path>, what: &str) -> Result<LazyFrame> {
+    let path_str = path
+        .as_ref()
+        .to_str()
+        .ok_or_else(|| ExpandError::InvalidOptions(format!("{what} path is not valid UTF-8")))?;
+    Ok(LazyFrame::scan_parquet(
+        PlRefPath::new(path_str),
+        ScanArgsParquet::default(),
+    )?)
+}
+
+/// Write `frame` to `output_path` as Parquet — the shared tail of every
+/// `*_parquet` convenience wrapper.
+pub(crate) fn write_parquet_file(
+    mut frame: DataFrame,
+    output_path: impl AsRef<Path>,
+) -> Result<()> {
+    let mut file = std::fs::File::create(output_path)?;
+    ParquetWriter::new(&mut file).finish(&mut frame)?;
+    Ok(())
+}
+
 /// Read the Parquet file at `input_path`, expand it under `options.estimand`
 /// (ITT by default, or per-protocol), and write the dtype-exact result to
 /// `output_path`.
@@ -322,15 +357,9 @@ pub fn expand_parquet(
     output_path: impl AsRef<Path>,
     options: &ExpandOptions,
 ) -> Result<()> {
-    let path_str = input_path
-        .as_ref()
-        .to_str()
-        .ok_or_else(|| ExpandError::InvalidOptions("input path is not valid UTF-8".to_owned()))?;
-    let lf = LazyFrame::scan_parquet(PlRefPath::new(path_str), ScanArgsParquet::default())?;
-    let mut frame = expand(lf, options)?.collect()?;
-    let mut file = std::fs::File::create(output_path)?;
-    ParquetWriter::new(&mut file).finish(&mut frame)?;
-    Ok(())
+    let lf = scan_parquet_path(input_path, "input")?;
+    let frame = expand(lf, options)?.collect()?;
+    write_parquet_file(frame, output_path)
 }
 
 /// Apply pre-computed inverse-probability weights to a structural expansion.
@@ -385,13 +414,7 @@ pub fn apply_weights(
     // `weight` is the cumulative product of the multiplier within each trial,
     // ordered explicitly by `followup_time` so it is independent of physical row
     // order (determinism) — the `cum_prod` analogue of the per-protocol `cum_max`.
-    let weight = col(COL_MULT)
-        .cum_prod(false)
-        .over_with_options(
-            Some(vec![col(id), col(COL_TRIAL_PERIOD)]),
-            Some((vec![col(COL_FOLLOWUP_TIME)], SortOptions::default())),
-            WindowMapping::default(),
-        )?
+    let weight = over_trial_window(col(COL_MULT).cum_prod(false), id)?
         .cast(DataType::Float64)
         .alias(COL_WEIGHT);
 
@@ -440,21 +463,11 @@ pub fn expand_weighted_parquet(
     output_path: impl AsRef<Path>,
     options: &ExpandOptions,
 ) -> Result<()> {
-    let input_str = input_path
-        .as_ref()
-        .to_str()
-        .ok_or_else(|| ExpandError::InvalidOptions("input path is not valid UTF-8".to_owned()))?;
-    let factors_str = factors_path
-        .as_ref()
-        .to_str()
-        .ok_or_else(|| ExpandError::InvalidOptions("factors path is not valid UTF-8".to_owned()))?;
-    let input = LazyFrame::scan_parquet(PlRefPath::new(input_str), ScanArgsParquet::default())?;
-    let factors = LazyFrame::scan_parquet(PlRefPath::new(factors_str), ScanArgsParquet::default())?;
+    let input = scan_parquet_path(input_path, "input")?;
+    let factors = scan_parquet_path(factors_path, "factors")?;
     let expanded = expand(input, options)?;
-    let mut frame = apply_weights(expanded, factors, options)?.collect()?;
-    let mut file = std::fs::File::create(output_path)?;
-    ParquetWriter::new(&mut file).finish(&mut frame)?;
-    Ok(())
+    let frame = apply_weights(expanded, factors, options)?.collect()?;
+    write_parquet_file(frame, output_path)
 }
 
 #[cfg(test)]
@@ -508,30 +521,9 @@ mod tests {
             .collect()
     }
 
-    /// Expand `fixtures/<subdir>/input_<name>.parquet` and assert it equals
-    /// `fixtures/<subdir>/expected_<name>_itt.parquet` exactly (schema + values).
-    fn assert_itt_matches(subdir: &str, name: &str) {
-        let input = fixture(&format!("{subdir}/input_{name}.parquet"));
-        let expected_path = fixture(&format!("{subdir}/expected_{name}_itt.parquet"));
-        assert!(input.exists(), "missing input fixture: {}", input.display());
-        assert!(
-            expected_path.exists(),
-            "missing expected fixture: {}",
-            expected_path.display()
-        );
-
-        let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX);
-        let lf = LazyFrame::scan_parquet(
-            PlRefPath::new(input.to_str().expect("utf8")),
-            ScanArgsParquet::default(),
-        )
-        .expect("scan input");
-        let actual = expand(lf, &opts)
-            .expect("expand ok")
-            .collect()
-            .expect("collect actual");
-        let expected = read_parquet(&expected_path);
-
+    /// Assert bit-exact frame equality: column names AND dtypes in order, row
+    /// count, then per-column exact values with a readable frame-level diff.
+    fn assert_frames_equal(actual: &DataFrame, expected: &DataFrame, name: &str) {
         // Schema: column names AND dtypes, in order (bit-exactness lives here).
         assert_eq!(
             actual.get_column_names(),
@@ -566,13 +558,17 @@ mod tests {
         }
     }
 
-    /// Expand `fixtures/<subdir>/input_<name>.parquet` under the per-protocol
-    /// estimand and assert it equals `fixtures/<subdir>/expected_<name>_pp.parquet`
+    /// Expand `fixtures/<subdir>/input_<name>.parquet` under `estimand` and
+    /// assert it equals `fixtures/<subdir>/expected_<name>_<itt|pp>.parquet`
     /// exactly (schema + values + order). PP keeps the same six structural
     /// columns/dtypes as ITT; censoring shows up purely as missing rows.
-    fn assert_pp_matches(subdir: &str, name: &str) {
+    fn assert_expand_matches(subdir: &str, name: &str, estimand: Estimand) {
+        let suffix = match estimand {
+            Estimand::Itt => "itt",
+            Estimand::PerProtocol => "pp",
+        };
         let input = fixture(&format!("{subdir}/input_{name}.parquet"));
-        let expected_path = fixture(&format!("{subdir}/expected_{name}_pp.parquet"));
+        let expected_path = fixture(&format!("{subdir}/expected_{name}_{suffix}.parquet"));
         assert!(input.exists(), "missing input fixture: {}", input.display());
         assert!(
             expected_path.exists(),
@@ -580,8 +576,8 @@ mod tests {
             expected_path.display()
         );
 
-        let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX)
-            .with_estimand(Estimand::PerProtocol);
+        let opts =
+            ExpandOptions::new("id", "period", "treatment", 0, i32::MAX).with_estimand(estimand);
         let lf = LazyFrame::scan_parquet(
             PlRefPath::new(input.to_str().expect("utf8")),
             ScanArgsParquet::default(),
@@ -593,36 +589,15 @@ mod tests {
             .expect("collect actual");
         let expected = read_parquet(&expected_path);
 
-        assert_eq!(
-            actual.get_column_names(),
-            expected.get_column_names(),
-            "[{name}] column names/order differ"
-        );
-        assert_eq!(
-            actual.dtypes(),
-            expected.dtypes(),
-            "[{name}] dtypes differ\n  actual:   {:?}\n  expected: {:?}",
-            actual.dtypes(),
-            expected.dtypes()
-        );
-        assert_eq!(
-            actual.height(),
-            expected.height(),
-            "[{name}] row count differs: actual {} vs expected {}",
-            actual.height(),
-            expected.height()
-        );
+        assert_frames_equal(&actual, &expected, name);
+    }
 
-        for col_name in expected.get_column_names() {
-            let a = actual.column(col_name).expect("actual column");
-            let e = expected.column(col_name).expect("expected column");
-            assert!(
-                a.equals(e),
-                "[{name}] column '{col_name}' differs\n--- actual (head 20) ---\n{}\n--- expected (head 20) ---\n{}",
-                actual.head(Some(20)),
-                expected.head(Some(20))
-            );
-        }
+    fn assert_itt_matches(subdir: &str, name: &str) {
+        assert_expand_matches(subdir, name, Estimand::Itt);
+    }
+
+    fn assert_pp_matches(subdir: &str, name: &str) {
+        assert_expand_matches(subdir, name, Estimand::PerProtocol);
     }
 
     // ---- Edge battery (graded order: single -> multi-trial -> baseline event
@@ -818,38 +793,30 @@ mod tests {
 
             let actual = read_parquet(&out);
             let expected = read_parquet(&expected_path);
-            assert_eq!(
-                actual.get_column_names(),
-                expected.get_column_names(),
-                "[{name}] names"
-            );
-            assert_eq!(actual.dtypes(), expected.dtypes(), "[{name}] dtypes");
-            assert_eq!(actual.height(), expected.height(), "[{name}] height");
-            for c in expected.get_column_names() {
-                let a = actual.column(c).expect("actual col");
-                let e = expected.column(c).expect("expected col");
-                assert!(
-                    a.equals(e),
-                    "[{name}] column '{c}' differs after round-trip"
-                );
-            }
+            assert_frames_equal(&actual, &expected, name);
         }
     }
 
-    // ---- Invariants (property-style checks on the canonical multi-trial case). ----
-    #[test]
-    fn invariant_one_baseline_row_per_trial() {
-        let input = fixture("edge/input_E02_id4_canonical.parquet");
+    /// Expand a fixture input under default (ITT) options and collect — the
+    /// shared preamble of the invariant checks below.
+    fn expand_fixture(rel: &str) -> DataFrame {
+        let input = fixture(rel);
         let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX);
         let lf = LazyFrame::scan_parquet(
             PlRefPath::new(input.to_str().expect("utf8")),
             ScanArgsParquet::default(),
         )
         .expect("scan");
-        let out = expand(lf, &opts)
+        expand(lf, &opts)
             .expect("expand")
             .collect()
-            .expect("collect");
+            .expect("collect")
+    }
+
+    // ---- Invariants (property-style checks on the canonical multi-trial case). ----
+    #[test]
+    fn invariant_one_baseline_row_per_trial() {
+        let out = expand_fixture("edge/input_E02_id4_canonical.parquet");
 
         // followup_time >= 0 everywhere.
         let min_fu = out
@@ -883,16 +850,7 @@ mod tests {
         // frozen from first eligibility. E04 re-entry (trials 0,1,3) carries assigned
         // 0,0,1; a freeze-from-first-eligibility bug would wrongly give trial 3 = 0.
         let input = fixture("edge/input_E04_reentry.parquet");
-        let opts = ExpandOptions::new("id", "period", "treatment", 0, i32::MAX);
-        let lf = LazyFrame::scan_parquet(
-            PlRefPath::new(input.to_str().expect("utf8")),
-            ScanArgsParquet::default(),
-        )
-        .expect("scan");
-        let out = expand(lf, &opts)
-            .expect("expand")
-            .collect()
-            .expect("collect");
+        let out = expand_fixture("edge/input_E04_reentry.parquet");
 
         // Baseline treatment per period, straight from the input.
         let baseline = read_parquet(&input).lazy().select([

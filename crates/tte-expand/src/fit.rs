@@ -853,15 +853,9 @@ pub fn fit_weights_parquet(
     options: &ExpandOptions,
     spec: &WeightSpec,
 ) -> Result<()> {
-    let input_str = input_path
-        .as_ref()
-        .to_str()
-        .ok_or_else(|| ExpandError::InvalidOptions("input path is not valid UTF-8".to_owned()))?;
-    let cohort = LazyFrame::scan_parquet(PlRefPath::new(input_str), ScanArgsParquet::default())?;
-    let mut frame = fit_weights(cohort, options, spec)?.collect()?;
-    let mut file = std::fs::File::create(output_path)?;
-    ParquetWriter::new(&mut file).finish(&mut frame)?;
-    Ok(())
+    let cohort = crate::scan_parquet_path(input_path, "input")?;
+    let frame = fit_weights(cohort, options, spec)?.collect()?;
+    crate::write_parquet_file(frame, output_path)
 }
 
 /// Expand a Parquet cohort, fit its weights, apply them, and write the result.
@@ -881,17 +875,11 @@ pub fn expand_weighted_fitted_parquet(
     options: &ExpandOptions,
     spec: &WeightSpec,
 ) -> Result<()> {
-    let input_str = input_path
-        .as_ref()
-        .to_str()
-        .ok_or_else(|| ExpandError::InvalidOptions("input path is not valid UTF-8".to_owned()))?;
-    let cohort = LazyFrame::scan_parquet(PlRefPath::new(input_str), ScanArgsParquet::default())?;
+    let cohort = crate::scan_parquet_path(input_path, "input")?;
     let factors = fit_weights(cohort.clone(), options, spec)?;
     let expanded = expand(cohort, options)?;
-    let mut frame = apply_weights(expanded, factors, options)?.collect()?;
-    let mut file = std::fs::File::create(output_path)?;
-    ParquetWriter::new(&mut file).finish(&mut frame)?;
-    Ok(())
+    let frame = apply_weights(expanded, factors, options)?.collect()?;
+    crate::write_parquet_file(frame, output_path)
 }
 
 #[cfg(test)]
