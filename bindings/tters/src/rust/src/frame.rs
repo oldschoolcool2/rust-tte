@@ -1,4 +1,4 @@
-//! Phase 8/9 — in-memory marshalling between an R `data.frame` and a Polars frame.
+//! In-memory marshalling between an R `data.frame` and a Polars frame.
 //!
 //! The parquet-path shims (`expand_parquet`, …) hand data over via files. This
 //! module lets the `*_df` shims take an R `data.frame` straight to a Polars
@@ -33,11 +33,11 @@
 //! `int32`↔R `integer`, `double`↔R `double`), so the in-memory path matches the
 //! same fixtures at the same tolerances.
 //!
-//! ## Exact 64-bit integers (Phase 9)
+//! ## Exact 64-bit integers
 //! Base R has no native 64-bit integer; the `bit64` package stores one in a
 //! `REALSXP` whose 8 bytes per element **are** the `i64` bit pattern (NOT an IEEE
 //! double), tagged with `class = "integer64"`, using `i64::MIN`'s bit pattern as
-//! its `NA` sentinel. Phase 9 round-trips these **exactly**, both directions, by
+//! its `NA` sentinel. These round-trip **exactly**, both directions, by
 //! reinterpreting the bits with pure-safe std (`f64::to_ne_bytes` /
 //! `i64::from_ne_bytes`) — NO `unsafe`, NO Arrow C Data Interface. Both halves run
 //! in the same process, so native-endian byte order is correct on both sides.
@@ -358,7 +358,8 @@ mod tests {
     #[test]
     fn precision_critical_values_are_distinct_unlike_a_naive_cast() {
         // A numeric cast would collapse 2^53 and 2^53+1 to the same f64; the
-        // bit-reinterpret keeps them distinct (the whole point of Phase 9).
+        // bit-reinterpret keeps them distinct (the whole point of the exact
+        // `integer64` round-trip).
         let a = i64_to_f64_bits(POW2_53);
         let b = i64_to_f64_bits(POW2_53_PLUS_1);
         assert_ne!(

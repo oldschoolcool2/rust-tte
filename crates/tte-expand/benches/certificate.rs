@@ -11,7 +11,7 @@
     clippy::indexing_slicing,
     clippy::panic
 )]
-//! Phase-5 **computational-reproducibility certificate** generator.
+//! **Computational-reproducibility certificate** generator.
 //!
 //! Emits `report/certificate.md`, asserting bit-exact equivalence of the Rust
 //! engine to the R `TrialEmulation` Oracle across the committed fixture battery.
@@ -38,7 +38,7 @@ use tte_expand::{Estimand, ExpandOptions, apply_weights, expand};
 /// Harness tolerance on the *applied* `weight` (mirrors `tests/weights.rs`).
 const WEIGHT_REL_TOL: f64 = 1e-12;
 
-/// Staged tolerance on the *fitted* `weight` (Phase 6 `weights-fit`): the bound
+/// Staged tolerance on the *fitted* `weight` (`weights-fit` feature): the bound
 /// `smartcore` solver converges to R `glm`'s MLE, not bit-for-bit (ADR-2). Mirrors
 /// `fit::tests::FITTED_WEIGHT_REL_TOL`. Observed worst on the fixtures ≈3.4e-7.
 const FITTED_WEIGHT_REL_TOL: f64 = 1e-6;
@@ -216,7 +216,7 @@ fn spot_weighted(
     }
 }
 
-/// Live re-verification of the Phase-6 **fitted** weight path: fit the IPW models
+/// Live re-verification of the **fitted** weight path (`weights-fit`): fit the IPW models
 /// in Rust (no pre-computed factor table), apply them, and check `weight` against
 /// the Oracle within [`FITTED_WEIGHT_REL_TOL`]. Structural columns stay bit-exact.
 #[cfg(feature = "weights-fit")]
@@ -320,7 +320,7 @@ fn main() -> ExitCode {
         Estimand::PerProtocol,
     ));
 
-    // Phase-6 fitted-weight checks (only with `--features weights-fit`): fit the
+    // Fitted-weight checks (only with `--features weights-fit`): fit the
     // IPW models in Rust and assert `weight` within FITTED_WEIGHT_REL_TOL.
     let fitted_checked = cfg!(feature = "weights-fit");
     #[cfg(feature = "weights-fit")]

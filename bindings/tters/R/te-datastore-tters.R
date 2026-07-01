@@ -1,5 +1,4 @@
-# ============================================================================
-# Phase 11: the `te_datastore` companion backend.
+# The `te_datastore` companion backend.
 #
 # Wires the verified `tters` Rust + Polars expansion into upstream
 # `TrialEmulation` so a user's `trial_sequence()` pipeline runs the expensive
@@ -18,7 +17,6 @@
 # `requireNamespace("TrialEmulation")`. `TrialEmulation` is a `Suggests`, never an
 # `Imports`: plain `tters` (no `TrialEmulation`, no estimation) is unaffected, and
 # the companion degrades gracefully when it is absent.
-# ============================================================================
 
 # `data.table` is a `Suggests` (pulled in transitively by `TrialEmulation`), not
 # an `Imports`, so this namespace is not automatically "data.table aware". This

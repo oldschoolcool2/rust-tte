@@ -1,6 +1,6 @@
-//! Phase 6 — inverse-probability **weight fitting** in Rust.
+//! Inverse-probability **weight fitting** in Rust (the `weights-fit` feature).
 //!
-//! Phase 3 ([`crate::apply_weights`]) *consumes* a per-`(id, period)` factor
+//! [`crate::apply_weights`] *consumes* a per-`(id, period)` factor
 //! table; this module *produces* it, reproducing the legacy
 //! `TrialEmulation::data_preparation(use_censor_weights = …)` weight path:
 //!

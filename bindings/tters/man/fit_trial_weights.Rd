@@ -57,7 +57,7 @@ User-facing wrapper around the extendr-generated \code{\link[=fit_weights_parque
 \emph{fits} the IPW switching and/or IPCW censoring models in Rust and writes the
 per-\verb{(id, period)} factor table (\verb{id, period, weight_factor}) — the table
 \code{\link[=expand_trial_weighted]{expand_trial_weighted()}} consumes. Unlike that pre-computed-factor path, here
-the weight \emph{models} are fitted in Rust (the Phase-6 \code{weights-fit} surface): a
+the weight \emph{models} are fitted in Rust (the \code{weights-fit} surface): a
 faithful port of \code{TrialEmulation}'s design preparation plus a deterministic
 binomial-logit solver. Robust/sandwich variance and the marginal structural
 model stay in R.

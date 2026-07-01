@@ -8,7 +8,7 @@ use tte_expand::{
     CensorWeightSpec, Estimand, ExpandOptions, PoolCensor, SwitchWeightSpec, WeightSpec,
 };
 
-// Phase 8: in-memory marshalling between an R `data.frame` and a Polars frame, so
+// In-memory marshalling between an R `data.frame` and a Polars frame, so
 // the `*_df` shims below can run cohort-frame -> result-frame with no intermediate
 // Parquet (the verified dtype-exact transformation still lives in the core).
 mod frame;
@@ -235,7 +235,7 @@ fn expand_weighted_parquet(
 /// Fit the inverse-probability **weight factor** for a Parquet cohort in Rust and
 /// write the per-`(id, period)` factor table (`id, period, weight_factor`).
 ///
-/// A thin FFI shim over `tte_expand::fit_weights_parquet` (the Phase-6
+/// A thin FFI shim over `tte_expand::fit_weights_parquet` (the
 /// `weights-fit` surface). Unlike `expand_weighted_parquet()`, which *applies* a
 /// pre-computed factor table, this *fits* the IPW models in Rust: it ports
 /// `TrialEmulation`'s `data_manipulation` + `censor_func` design preparation and

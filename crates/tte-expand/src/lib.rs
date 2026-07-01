@@ -34,7 +34,7 @@ const COL_TRIAL_PERIOD: &str = "trial_period";
 const COL_FOLLOWUP_TIME: &str = "followup_time";
 /// Output column: treatment at the trial baseline, carried forward (ITT).
 const COL_ASSIGNED_TREATMENT: &str = "assigned_treatment";
-/// Output column (Phase 3): the per-row inverse-probability weight.
+/// Output column: the per-row inverse-probability weight.
 const COL_WEIGHT: &str = "weight";
 /// Join column: each follow-up row's calendar period (`trial_period +
 /// followup_time`), used to attach the per-`(id, period)` weight factor.
@@ -43,7 +43,7 @@ const COL_PERIOD: &str = "period";
 /// engine joins and then accumulates (see [`apply_weights`]).
 const COL_WEIGHT_FACTOR: &str = "weight_factor";
 
-/// Phase 6 (optional v2): weight-model *fitting* — produce the per-`(id, period)`
+/// Weight-model *fitting* — produce the per-`(id, period)`
 /// factor table that [`apply_weights`] consumes, by binding a mature logistic
 /// solver (no hand-rolled IRLS; robust/sandwich variance stays in R). Gated behind
 /// the non-default `weights-fit` feature so the R binding and a plain build stay
@@ -91,7 +91,7 @@ pub enum ExpandError {
     InvalidOptions(String),
     /// A weight-model fit failed: a referenced column was absent, a design matrix
     /// was empty/degenerate, or the bound logistic solver did not converge
-    /// (Phase 6 `weights-fit` feature). Carries a human-readable reason.
+    /// (`weights-fit` feature). Carries a human-readable reason.
     #[error("weight fit error: {0}")]
     WeightFit(String),
 }
@@ -272,7 +272,7 @@ pub fn expand(input: LazyFrame, options: &ExpandOptions) -> Result<LazyFrame> {
         );
 
     match options.estimand {
-        // ITT: return the full expansion, byte-identical to Phase 1.
+        // ITT: no artificial censoring — return the full expansion unchanged.
         Estimand::Itt => Ok(expanded),
         // PP: keep only rows STRICTLY BEFORE each trial's first deviation.
         // Within each `(id, trial_period)` window, ordered explicitly by

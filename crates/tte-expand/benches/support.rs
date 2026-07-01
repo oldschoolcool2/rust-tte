@@ -1,4 +1,4 @@
-//! Shared, dependency-free, deterministic benchmark-input generator (Phase 5).
+//! Shared, dependency-free, deterministic benchmark-input generator.
 //!
 //! Not a bench target (the crate sets `autobenches = false`): the bench files
 //! pull it in with `#[path = "support.rs"] mod support;`. Inputs are produced

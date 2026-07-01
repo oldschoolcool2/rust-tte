@@ -63,7 +63,7 @@ strata: \code{"none"}, \code{"numerator"}, or \code{"both"}. Case-insensitive.}
 in the core engine (including weight-fit failures) surface as R errors.
 }
 \description{
-A thin FFI shim over \code{tte_expand::fit_weights_parquet} (the Phase-6
+A thin FFI shim over \code{tte_expand::fit_weights_parquet} (the
 \code{weights-fit} surface). Unlike \code{expand_weighted_parquet()}, which \emph{applies} a
 pre-computed factor table, this \emph{fits} the IPW models in Rust: it ports
 \code{TrialEmulation}'s \code{data_manipulation} + \code{censor_func} design preparation and
