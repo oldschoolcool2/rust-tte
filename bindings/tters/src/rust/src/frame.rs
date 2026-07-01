@@ -369,8 +369,13 @@ mod tests {
         );
         assert_eq!(f64_bits_to_i64(a), POW2_53);
         assert_eq!(f64_bits_to_i64(b), POW2_53_PLUS_1);
-        // Sanity: a naive numeric cast really does lose the low bit here.
-        assert_eq!(POW2_53 as f64, POW2_53_PLUS_1 as f64);
+        // Sanity: a naive numeric cast really does lose the low bit here. The
+        // lossy cast and exact float comparison ARE the failure mode under
+        // test, so the numeric-exactness lints are deliberately waived.
+        #[allow(clippy::cast_precision_loss, clippy::float_cmp)]
+        {
+            assert_eq!(POW2_53 as f64, POW2_53_PLUS_1 as f64);
+        }
     }
 
     #[test]
