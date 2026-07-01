@@ -42,7 +42,7 @@ jobs:
       # Point the round-trip test at the immutable in-repo fixture battery.
       TTERS_FIXTURE_DIR: ${{ github.workspace }}/fixtures
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # rust-toolchain.toml pins 1.95.0; rustup auto-installs it when cargo runs
       # in the (detached) binding workspace, so @stable just provides rustup.
@@ -85,7 +85,7 @@ jobs:
     steps:
       # Full history so build-offline-tarball.sh can `git clone --bare` the
       # workspace and cargo can vendor the git-pinned core at HEAD.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
