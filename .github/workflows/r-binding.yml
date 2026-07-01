@@ -35,6 +35,41 @@ permissions:
   contents: read
 
 jobs:
+  # The binding crate is a DETACHED cargo workspace (bindings/tters/src/rust
+  # has its own [workspace] + [lints] tables), so the repo-root ci.yml
+  # fmt/clippy jobs never see it. This job is its lint wall. Dev-profile (no
+  # LTO), so it is much faster than the release install below.
+  lint:
+    name: fmt + clippy (binding workspace)
+    runs-on: ubuntu-latest
+    env:
+      # No debug info: a debug-info Polars build can exhaust the runner disk.
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@v7
+
+      # rust-toolchain.toml pins 1.95.0 + rustfmt/clippy components; @stable
+      # just provides rustup.
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The extendr -> libR-sys build script needs an R installation (libR
+      # headers) even for a check-profile clippy build.
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bindings/tters/src/rust
+
+      - name: cargo fmt --check
+        working-directory: bindings/tters/src/rust
+        run: cargo fmt --check
+
+      - name: cargo clippy -D warnings
+        working-directory: bindings/tters/src/rust
+        run: cargo clippy --all-targets --locked -- -D warnings
+
   install-and-test:
     name: R CMD INSTALL + testthat round-trip
     runs-on: ubuntu-latest
