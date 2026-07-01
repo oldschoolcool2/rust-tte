@@ -1,0 +1,41 @@
+name: Quality (clones + antipatterns)
+
+# CI half of `make clones` / `make antipatterns`: the jscpd duplication gate
+# (.jscpd.json, 8% duplicated-lines threshold) and the semgrep
+# agent-antipattern scan (.claude/semgrep/agent-antipatterns.yaml —
+# path-scoped determinism bans clippy cannot express, plus the Rust Design
+# Patterns book's anti-patterns). Both are static text scans: no cargo build,
+# so the job costs seconds.
+#
+# Pinning note: `uses:` are TAG-pinned to match the repo's deliberate
+# "tag pins + Dependabot" policy.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: only needs to read the repository.
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: jscpd + semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Provides `uvx` for `make antipatterns`; node/npx for `make clones`
+      # is preinstalled on ubuntu-latest.
+      - uses: astral-sh/setup-uv@v7
+
+      - name: make antipatterns (semgrep agent-antipattern scan)
+        run: make antipatterns
+
+      - name: make clones (jscpd duplication gate)
+        run: make clones
