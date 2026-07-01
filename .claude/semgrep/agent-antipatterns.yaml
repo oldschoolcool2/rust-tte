@@ -1,0 +1,148 @@
+# Rust-focused agent-antipattern ruleset for tte-expand.
+#
+# Run with:  make antipatterns   (uvx semgrep --config this-file)
+#
+# Two sources of truth back these rules:
+#   1. The repo's determinism contract (.claude/rules/determinism.md): no
+#      wall-clock, RNG, environment reads, or hash-iteration-order dependence
+#      in the transform path. Clippy cannot express path-scoped bans, so they
+#      live here.
+#   2. The anti-patterns catalogued by the Rust Design Patterns book
+#      (rust-unofficial.github.io/patterns): #![deny(warnings)] in source and
+#      clone-to-satisfy-the-borrow-checker. (Its third, Deref polymorphism, is
+#      not encoded: a Deref impl is legitimate for smart-pointer newtypes and
+#      semgrep cannot judge intent.)
+#
+# Panic hygiene (unwrap/expect/panic/indexing/dbg!) is deliberately absent:
+# clippy already warns on those workspace-wide with -D warnings in CI.
+
+rules:
+  - id: no-wall-clock-in-transform
+    message: >
+      Wall-clock read in the deterministic transform path. Output must be
+      byte-identical across runs and machines (determinism.md); time must
+      never influence the engine or the binding marshalling.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      include:
+        - "**/crates/tte-expand/src"
+        - "**/bindings/tters/src/rust/src"
+    pattern-either:
+      - pattern: std::time::SystemTime::now()
+      - pattern: SystemTime::now()
+      - pattern: std::time::Instant::now()
+      - pattern: Instant::now()
+
+  - id: no-env-reads-in-transform
+    message: >
+      Environment read in the deterministic transform path. The engine must
+      not read configuration from the environment (determinism.md); pass
+      options explicitly via ExpandOptions/WeightSpec. (Benches may read
+      env vars as benchmark configuration; src/ must not.)
+    severity: ERROR
+    languages: [rust]
+    paths:
+      include:
+        - "**/crates/tte-expand/src"
+        - "**/bindings/tters/src/rust/src"
+    pattern-either:
+      - pattern: std::env::var($X)
+      - pattern: std::env::var_os($X)
+      - pattern: env::var($X)
+      - pattern: env::var_os($X)
+
+  - id: no-rng-in-transform
+    message: >
+      Randomness in the deterministic transform path. The engine has no
+      legitimate use for RNG (determinism.md); if a future test needs one,
+      seed it explicitly and record the seed.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      include:
+        - "**/crates/tte-expand/src"
+        - "**/bindings/tters/src/rust/src"
+    pattern-either:
+      - pattern: rand::thread_rng()
+      - pattern: thread_rng()
+      - pattern: rand::random()
+
+  - id: no-hash-collections-in-transform
+    message: >
+      HashMap/HashSet iteration order is unspecified and can leak into output
+      row order (determinism.md). Use BTreeMap/BTreeSet, or sort keys before
+      any iteration whose order affects output.
+    severity: WARNING
+    languages: [rust]
+    paths:
+      include:
+        - "**/crates/tte-expand/src"
+        - "**/bindings/tters/src/rust/src"
+    pattern-either:
+      - pattern: "use std::collections::HashMap;"
+      - pattern: "use std::collections::HashSet;"
+      - pattern: std::collections::HashMap::new()
+      - pattern: std::collections::HashSet::new()
+
+  - id: no-print-in-library
+    message: >
+      Direct stdout/stderr write in library code. The engine is a library
+      (errors surface as typed ExpandError values) and the binding reports
+      through R's condition system; neither may print. Clippy's
+      print_stdout/print_stderr are restriction lints the workspace does not
+      enable, so the ban is enforced here, scoped to src/.
+    severity: ERROR
+    languages: [rust]
+    paths:
+      include:
+        - "**/crates/tte-expand/src"
+        - "**/bindings/tters/src/rust/src"
+    pattern-either:
+      - pattern: println!($...ARGS)
+      - pattern: print!($...ARGS)
+      - pattern: eprintln!($...ARGS)
+      - pattern: eprint!($...ARGS)
+
+  - id: no-deny-warnings-attribute
+    message: >
+      "#![deny(warnings)] in source is the Rust Design Patterns book's
+      denying-warnings anti-pattern: it turns every future compiler/clippy
+      lint into a build break. This repo already treats warnings as errors
+      in CI (-D warnings); keep the policy out of the source."
+    severity: WARNING
+    languages: [generic]
+    paths:
+      include:
+        - "*.rs"
+    pattern-regex: '#!\[deny\(warnings\)\]'
+
+  - id: no-crate-level-clippy-allow-in-src
+    message: >
+      Crate-level #![allow(clippy::...)] in library source silences the
+      hardened workspace lint wall wholesale — the classic agent shortcut to
+      make a lint disappear. Use a scoped #[allow(...)] at the offending item
+      with a one-line justification (rust-style.md), or fix the lint.
+    severity: WARNING
+    languages: [generic]
+    paths:
+      include:
+        - "**/crates/tte-expand/src"
+        - "**/bindings/tters/src/rust/src"
+    pattern-regex: '#!\[allow\(clippy::'
+
+  - id: borrow-checker-clone
+    message: >
+      Cloning to satisfy the borrow checker (Rust Design Patterns book
+      anti-pattern): '&mut x.clone()' silently severs the alias the borrow
+      checker was protecting — the mutation no longer reaches the original.
+      Restructure the borrows instead; clone deliberately, not to silence
+      the compiler.
+    severity: WARNING
+    languages: [generic]
+    paths:
+      include:
+        - "*.rs"
+      exclude:
+        - "**/vendor/**"
+    pattern-regex: '&mut\s+[A-Za-z_][A-Za-z0-9_.]*\.clone\(\)'

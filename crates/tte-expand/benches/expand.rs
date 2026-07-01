@@ -13,7 +13,7 @@
     clippy::cast_sign_loss,
     clippy::cast_lossless
 )]
-//! Phase-5 criterion micro-benchmarks of the expansion engine.
+//! Criterion micro-benchmarks of the expansion engine.
 //!
 //! Measures the deterministic transform — `expand` (ITT and per-protocol) and
 //! the weighted `apply_weights` path — on seeded synthetic person-time inputs
@@ -36,7 +36,8 @@ use tte_expand::{Estimand, ExpandOptions, apply_weights, expand};
 
 /// Periods per synthetic patient (mean follow-up before truncation ~13).
 const PERIODS: u32 = 14;
-/// Fixed PRNG seed ("phase 5") — keeps every input byte-identical across runs.
+/// Fixed PRNG seed — arbitrary but frozen, so every input is byte-identical
+/// across runs.
 const SEED: u64 = 0x0050_0005;
 
 /// Target *input* row counts, filtered by `TTE_BENCH_MAX_ROWS`. Reading an env

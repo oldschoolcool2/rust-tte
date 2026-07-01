@@ -53,7 +53,19 @@ GitHub actions for the repository owner to perform (or to explicitly approve):
    # then commit tools/r-universe/packages.json as packages.json at that repo root
    ```
 
-3. r-universe picks it up automatically and builds `tters` from
+   This registry repo now exists:
+   <https://github.com/oldschoolcool2/oldschoolcool2.r-universe.dev>.
+
+3. **Install the R-universe GitHub App** on the `oldschoolcool2` account —
+   <https://github.com/apps/r-universe/installations/new>. It requests only
+   *read/write access to commit statuses* (so r-universe can post the green build
+   check); choose **All repositories** so packages added later are covered. This is
+   a browser OAuth step and cannot be done with `gh`. A pushed `packages.json`
+   **and** an installed app are BOTH required — with either missing, nothing builds.
+   (The universe is derived from the account name; there is no "create universe"
+   button — pushing `packages.json` plus installing the app is the entire trigger.)
+
+4. r-universe picks it up automatically and builds `tters` from
    `bindings/tters/` on every push to this repo's default branch. The built
    package appears at `https://oldschoolcool2.r-universe.dev/tters` and installs
    with:

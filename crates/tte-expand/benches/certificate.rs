@@ -11,7 +11,7 @@
     clippy::indexing_slicing,
     clippy::panic
 )]
-//! Phase-5 **computational-reproducibility certificate** generator.
+//! **Computational-reproducibility certificate** generator.
 //!
 //! Emits `report/certificate.md`, asserting bit-exact equivalence of the Rust
 //! engine to the R `TrialEmulation` Oracle across the committed fixture battery.
@@ -38,10 +38,47 @@ use tte_expand::{Estimand, ExpandOptions, apply_weights, expand};
 /// Harness tolerance on the *applied* `weight` (mirrors `tests/weights.rs`).
 const WEIGHT_REL_TOL: f64 = 1e-12;
 
-/// Staged tolerance on the *fitted* `weight` (Phase 6 `weights-fit`): the bound
+/// Staged tolerance on the *fitted* `weight` (`weights-fit` feature): the bound
 /// `smartcore` solver converges to R `glm`'s MLE, not bit-for-bit (ADR-2). Mirrors
 /// `fit::tests::FITTED_WEIGHT_REL_TOL`. Observed worst on the fixtures ≈3.4e-7.
 const FITTED_WEIGHT_REL_TOL: f64 = 1e-6;
+
+/// Short report label for an estimand ("ITT" / "PP").
+fn est_label(estimand: Estimand) -> &'static str {
+    if estimand == Estimand::Itt {
+        "ITT"
+    } else {
+        "PP"
+    }
+}
+
+/// Scan a Parquet file lazily — the shared spot-check input reader.
+fn scan_parquet_lazy(p: &Path) -> LazyFrame {
+    LazyFrame::scan_parquet(
+        PlRefPath::new(p.to_str().expect("utf-8")),
+        ScanArgsParquet::default(),
+    )
+    .expect("scan")
+}
+
+/// Assemble a weighted spot-check row: structural equality plus the worst
+/// relative `weight` diff judged against `tol`.
+fn weighted_spot_check(
+    label: &str,
+    estimand: Estimand,
+    actual: &DataFrame,
+    expected: &DataFrame,
+    tol: f64,
+) -> SpotCheck {
+    let worst = worst_weight_rel(actual, expected);
+    SpotCheck {
+        label: label.to_owned(),
+        estimand: est_label(estimand),
+        rows: actual.height(),
+        structural_ok: structural_equal(actual, expected),
+        weight: Some((worst <= tol, worst)),
+    }
+}
 
 fn repo_root() -> PathBuf {
     // `CARGO_MANIFEST_DIR` is `crates/tte-expand`; the repo root is two up.
@@ -146,22 +183,13 @@ fn worst_weight_rel(actual: &DataFrame, expected: &DataFrame) -> f64 {
 
 fn spot_structural(root: &Path, subdir: &str, name: &str, estimand: Estimand) -> SpotCheck {
     let label = format!("{subdir}/{name}");
-    let est = if estimand == Estimand::Itt {
-        "ITT"
-    } else {
-        "PP"
-    };
+    let est = est_label(estimand);
     let input = root.join(format!("fixtures/{subdir}/input_{name}.parquet"));
     let expected = root.join(format!(
         "fixtures/{subdir}/expected_{name}_{}.parquet",
         est.to_lowercase()
     ));
-    let lf = LazyFrame::scan_parquet(
-        PlRefPath::new(input.to_str().expect("utf-8")),
-        ScanArgsParquet::default(),
-    )
-    .expect("scan input");
-    let actual = expand(lf, &estimand_opts(estimand))
+    let actual = expand(scan_parquet_lazy(&input), &estimand_opts(estimand))
         .expect("expand")
         .collect()
         .expect("collect");
@@ -183,40 +211,21 @@ fn spot_weighted(
     expected_rel: &str,
     estimand: Estimand,
 ) -> SpotCheck {
-    let est = if estimand == Estimand::Itt {
-        "ITT"
-    } else {
-        "PP"
-    };
     let input = root.join(input_rel);
     let factors = root.join(factors_rel);
     let expected = read_parquet(&root.join(expected_rel));
-    let scan = |p: &Path| {
-        LazyFrame::scan_parquet(
-            PlRefPath::new(p.to_str().expect("utf-8")),
-            ScanArgsParquet::default(),
-        )
-        .expect("scan")
-    };
     let actual = apply_weights(
-        expand(scan(&input), &estimand_opts(estimand)).expect("expand"),
-        scan(&factors),
+        expand(scan_parquet_lazy(&input), &estimand_opts(estimand)).expect("expand"),
+        scan_parquet_lazy(&factors),
         &estimand_opts(estimand),
     )
     .expect("apply_weights")
     .collect()
     .expect("collect");
-    let worst = worst_weight_rel(&actual, &expected);
-    SpotCheck {
-        label: label.to_owned(),
-        estimand: est,
-        rows: actual.height(),
-        structural_ok: structural_equal(&actual, &expected),
-        weight: Some((worst <= WEIGHT_REL_TOL, worst)),
-    }
+    weighted_spot_check(label, estimand, &actual, &expected, WEIGHT_REL_TOL)
 }
 
-/// Live re-verification of the Phase-6 **fitted** weight path: fit the IPW models
+/// Live re-verification of the **fitted** weight path (`weights-fit`): fit the IPW models
 /// in Rust (no pre-computed factor table), apply them, and check `weight` against
 /// the Oracle within [`FITTED_WEIGHT_REL_TOL`]. Structural columns stay bit-exact.
 #[cfg(feature = "weights-fit")]
@@ -228,34 +237,19 @@ fn spot_fitted(
     estimand: Estimand,
     spec: &WeightSpec,
 ) -> SpotCheck {
-    let est = if estimand == Estimand::Itt {
-        "ITT"
-    } else {
-        "PP"
-    };
     let input = root.join(input_rel);
     let expected = read_parquet(&root.join(expected_rel));
-    let scan = |p: &Path| {
-        LazyFrame::scan_parquet(
-            PlRefPath::new(p.to_str().expect("utf-8")),
-            ScanArgsParquet::default(),
-        )
-        .expect("scan")
-    };
     let opts = estimand_opts(estimand);
-    let factors = fit_weights(scan(&input), &opts, spec).expect("fit_weights");
-    let actual = apply_weights(expand(scan(&input), &opts).expect("expand"), factors, &opts)
-        .expect("apply_weights")
-        .collect()
-        .expect("collect");
-    let worst = worst_weight_rel(&actual, &expected);
-    SpotCheck {
-        label: label.to_owned(),
-        estimand: est,
-        rows: actual.height(),
-        structural_ok: structural_equal(&actual, &expected),
-        weight: Some((worst <= FITTED_WEIGHT_REL_TOL, worst)),
-    }
+    let factors = fit_weights(scan_parquet_lazy(&input), &opts, spec).expect("fit_weights");
+    let actual = apply_weights(
+        expand(scan_parquet_lazy(&input), &opts).expect("expand"),
+        factors,
+        &opts,
+    )
+    .expect("apply_weights")
+    .collect()
+    .expect("collect");
+    weighted_spot_check(label, estimand, &actual, &expected, FITTED_WEIGHT_REL_TOL)
 }
 
 fn main() -> ExitCode {
@@ -320,7 +314,7 @@ fn main() -> ExitCode {
         Estimand::PerProtocol,
     ));
 
-    // Phase-6 fitted-weight checks (only with `--features weights-fit`): fit the
+    // Fitted-weight checks (only with `--features weights-fit`): fit the
     // IPW models in Rust and assert `weight` within FITTED_WEIGHT_REL_TOL.
     let fitted_checked = cfg!(feature = "weights-fit");
     #[cfg(feature = "weights-fit")]
@@ -455,13 +449,13 @@ fn main() -> ExitCode {
         "\n{}",
         if fitted_checked {
             format!(
-                "The `weights-fit:` rows *fit* the IPW models in Rust (Phase 6, \
-                 bound `smartcore` solver) and check `weight` within \
+                "The `weights-fit:` rows *fit* the IPW models in Rust (bound \
+                 `smartcore` solver) and check `weight` within \
                  **{FITTED_WEIGHT_REL_TOL:e}** relative; the others use the \
                  pre-computed factor table within {WEIGHT_REL_TOL:e}."
             )
         } else {
-            "Phase-6 fitted-weight checks were skipped (built without \
+            "Fitted-weight checks were skipped (built without \
              `--features weights-fit`)."
                 .to_owned()
         }
@@ -514,7 +508,7 @@ fn main() -> ExitCode {
          - Weight *application*: **exact** structural join, **{WEIGHT_REL_TOL:e}** \
          relative on the float `weight` product (the engine redoes the cumulative \
          product and may reassociate).\n\
-         - Weight *fitting* (Phase 6, `weights-fit` feature): the bound `smartcore` \
+         - Weight *fitting* (`weights-fit` feature): the bound `smartcore` \
          logistic solver reproduces R `glm`/`parglm` within **{FITTED_WEIGHT_REL_TOL:e}** \
          relative on the fitted `weight` — its L-BFGS converges to the same MLE as \
          R's IRLS, not bit-for-bit (observed worst on the fixtures ≈3.4e-7).\n\

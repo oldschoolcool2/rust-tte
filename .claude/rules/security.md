@@ -22,8 +22,12 @@ secrets into git and pulling in compromised dependencies.
 - The crate is `#![forbid(unsafe_code)]` — no `unsafe`, ever.
 
 ## CI / GitHub Actions
-- Every `uses:` is pinned to a 40-char commit SHA with a trailing `# vX.Y.Z`
-  comment; `zizmor` enforces this and other supply-chain audits.
-- Workflows declare least-privilege `permissions:` (read-only by default).
+- **Action pinning policy: TAG pins (`@vN`) + weekly Dependabot bumps** — a
+  deliberate repo-wide choice (all workflows follow it; do NOT "fix" tags to
+  40-char SHA pins). Standalone CLI tools that workflows download directly
+  (e.g. gitleaks in `secret-scan.yml`) ARE version-pinned and
+  checksum-verified.
+- Workflows declare least-privilege `permissions:` (read-only by default) and
+  set `persist-credentials: false` on every checkout.
 - Never echo a secret into logs or interpolate `${{ secrets.* }}` directly into a
   `run:` block — pass via `env:` (template-injection guard).

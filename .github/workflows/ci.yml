@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # Cancel superseded runs on the same branch/PR (saves CI minutes).
 concurrency:
@@ -27,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -37,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -68,6 +73,8 @@ jobs:
         toolchain: [stable, beta]
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
@@ -81,6 +88,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets --all-features --locked
@@ -96,7 +105,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny
       - run: cargo deny --all-features check
+
+  # Reproducibility certificate + fast benchmark smoke (absorbed from the
+  # retired standalone workflow, whose `make verify` re-ran the full contract
+  # suite the test matrix above already runs — `cargo test --all-targets` even
+  # executes the certificate bench in test mode). This job keeps the unique
+  # parts: the explicit certificate regeneration on the PINNED toolchain
+  # (rust-toolchain.toml; the `stable` matrix row can drift ahead of the pin
+  # between releases), the criterion smoke, and the published artifact. The
+  # heavy R-vs-Rust curves (`make curves`) and Tier-2 golden (`make golden`)
+  # stay manual — they need R + TrialEmulation.
+  certificate:
+    name: reproducibility certificate + bench smoke
+    runs-on: ubuntu-latest
+    env:
+      # Strip debug info: with full debuginfo, linking the bench binaries can
+      # exhaust the runner disk (same guard as the test matrix above).
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_PROFILE_BENCH_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # rust-toolchain.toml pins 1.95.0; rustup auto-installs it when cargo
+      # runs, so @stable just provides rustup.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # Differential fixture integrity + equivalence spot-checks: fails on any
+      # fixture SHA-256 drift or equivalence mismatch, and regenerates
+      # report/certificate.md.
+      - name: make certificate
+        run: make certificate
+
+      # Fast benchmark smoke (input rows <= 1e5, criterion --quick).
+      - name: make bench-smoke
+        run: make bench-smoke
+
+      # Publish the generated certificate as a build artifact.
+      - name: upload certificate
+        uses: actions/upload-artifact@v7
+        with:
+          name: reproducibility-certificate
+          path: report/certificate.md

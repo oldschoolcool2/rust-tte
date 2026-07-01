@@ -1,0 +1,21 @@
+{
+  "path": [
+    "crates",
+    "bindings/tters/src/rust/src",
+    "bindings/tters/R",
+    "bindings/tters/tools",
+    "bench"
+  ],
+  "format": ["rust", "r"],
+  "minTokens": 50,
+  "threshold": 8,
+  "reporters": ["consoleFull"],
+  "gitignore": true,
+  "ignore": [
+    "**/target/**",
+    "**/tests/**",
+    "**/extendr-wrappers.R",
+    "**/document.rs",
+    "**/vendor/**"
+  ]
+}

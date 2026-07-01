@@ -68,7 +68,7 @@ expand_weighted_parquet <- function(input_path, factors_path, output_path, id_co
 #' Fit the inverse-probability **weight factor** for a Parquet cohort in Rust and
 #' write the per-`(id, period)` factor table (`id, period, weight_factor`).
 #'
-#' A thin FFI shim over `tte_expand::fit_weights_parquet` (the Phase-6
+#' A thin FFI shim over `tte_expand::fit_weights_parquet` (the
 #' `weights-fit` surface). Unlike `expand_weighted_parquet()`, which *applies* a
 #' pre-computed factor table, this *fits* the IPW models in Rust: it ports
 #' `TrialEmulation`'s `data_manipulation` + `censor_func` design preparation and

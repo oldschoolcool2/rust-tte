@@ -50,6 +50,79 @@ codegen-units = 1
 # NOTE: do NOT set panic = "abort". extendr turns Rust panics into R errors via
 # catch_unwind, which requires the default unwind strategy.
 
+# Lint hardening, mirroring the repo-root [workspace.lints]: this crate is its
+# own detached workspace (see [workspace] below), so it inherits nothing from
+# the root tables and must restate them. The repo-root clippy.toml still
+# applies (clippy config discovery walks up parent directories), providing the
+# msrv pin and the unwrap/expect/panic-in-tests relaxations.
+[lints.rust]
+# `unsafe_code` is deliberately absent (not forbid/deny as in the core):
+# #[extendr] / extendr_module! emit the unsafe FFI registrar. All hand-written
+# code here is safe, and the core crate stays #![forbid(unsafe_code)].
+# `missing_docs` is also absent: the #[extendr] expansion emits undocumented
+# extern wrappers attributed to the call site, so the lint fires on generated
+# code (hand-written items are documented as roxygen via `///`).
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+redundant_lifetimes = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+# Groups at priority -1 so the specific overrides below win.
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Determinism / numeric-exactness hardening (the bit-for-bit invariant applies
+# across the FFI marshalling too — frame.rs is exactly where a silent cast
+# would corrupt an integer64 round-trip).
+float_cmp = "deny"
+float_cmp_const = "deny"
+lossy_float_literal = "deny"
+cast_possible_truncation = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "warn"
+
+# Panic hygiene in library code (relaxed for tests via the root clippy.toml).
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+indexing_slicing = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+
+# Docs completeness.
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+
+# Same tamed lints as the root workspace.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_const_for_fn = "allow"
+option_if_let_else = "allow"
+# The #[extendr] expansion binds the R arguments through underscore-prefixed
+# locals whose spans land on the hand-written parameters — unfixable here.
+used_underscore_binding = "allow"
+# The `///` docs are roxygen source consumed by rextendr (they become the R
+# man pages), not rustdoc — roxygen tags and R identifiers are not markdown.
+doc_markdown = "allow"
+# #[extendr] shims receive R objects (List/Strings) by value at the FFI
+# boundary, and the error mappers must stay FnOnce(E) for map_err.
+needless_pass_by_value = "allow"
+# Clashes with rust's unreachable_pub for the private `frame` module (known
+# nursery-lint incompatibility); unreachable_pub wins.
+redundant_pub_crate = "allow"
+# Polars' transitive tree carries duplicate versions (same allowance as root).
+multiple_crate_versions = "allow"
+# Package metadata (description/license/authors) lives in the R package's
+# DESCRIPTION; this is publish = false FFI glue.
+cargo_common_metadata = "allow"
+
 # Empty [workspace] table => this crate is its OWN workspace root, detached from
 # the repo-root workspace. `R CMD INSTALL` (cargo build --manifest-path=rust/
 # Cargo.toml) then builds a self-contained crate with its own Cargo.lock

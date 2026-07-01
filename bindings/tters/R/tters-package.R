@@ -141,7 +141,7 @@ expand_trial_weighted <- function(input_path,
 #' *fits* the IPW switching and/or IPCW censoring models in Rust and writes the
 #' per-`(id, period)` factor table (`id, period, weight_factor`) — the table
 #' [expand_trial_weighted()] consumes. Unlike that pre-computed-factor path, here
-#' the weight *models* are fitted in Rust (the Phase-6 `weights-fit` surface): a
+#' the weight *models* are fitted in Rust (the `weights-fit` surface): a
 #' faithful port of `TrialEmulation`'s design preparation plus a deterministic
 #' binomial-logit solver. Robust/sandwich variance and the marginal structural
 #' model stay in R.
@@ -304,13 +304,11 @@ expand_trial_weighted_fitted <- function(input_path,
   invisible(output_path)
 }
 
-# ============================================================================
-# Phase 8: in-memory (frame-in / frame-out) wrappers. These mirror the path
+# In-memory (frame-in / frame-out) wrappers. These mirror the path
 # wrappers above but take an in-memory cohort `data.frame` and RETURN a
 # `data.frame`, with no intermediate Parquet. The cohort is coerced with
 # `as.data.frame()` so tibbles, data.tables, and Arrow Tables are all accepted;
 # columns marshal dtype-exactly (R `integer` <-> Int32, `double` <-> Float64).
-# ============================================================================
 
 #' Expand a target-trial cohort data.frame in memory (ergonomic wrapper)
 #'
