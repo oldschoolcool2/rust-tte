@@ -9,6 +9,7 @@
 #'
 #' @importFrom bit64 integer64
 #' @importFrom methods is isClass new setClass setMethod
+#' @importFrom utils globalVariables
 #' @keywords internal
 "_PACKAGE"
 
