@@ -4,7 +4,9 @@
 > `TrialEmulation` through its own `te_datastore` extension API: a user's
 > `trial_sequence()` pipeline runs the expensive **expansion in Rust** while
 > estimation (sampling + the marginal structural model) stays in **R**, consuming
-> the Rust output **bit-identically** to the default path. Opt-in, `Suggests`-level,
+> the Rust output — **structural columns bit-identical**, weights and `fit_msm`
+> coefficients within tolerance (rel **1e-12 / 1e-6**) — versus the default path.
+> Opt-in, `Suggests`-level,
 > with graceful fallback. **No Rust changed** — this is R integration glue over
 > the Phase-8/9 in-memory binding.
 
@@ -81,8 +83,8 @@ Everything below was proven on `TrialEmulation`'s bundled `data_censored` cohort
 | # | Question | Finding |
 |---|---|---|
 | **(a)** | **The SEAM** | Confirmed against `R/expand_trials.R` + `R/data_extension.R`: `expand_trials_trial_seq()` runs R's `expand()` **first**, then `save_expanded_data(datastore, switch_data)`. `te_datastore` is a **storage** seam, so a mere storage backend gives no speedup. ⇒ the companion runs the **expansion in Rust** and presents it **through** the interface. |
-| **(b)** | **The DATA CONTRACT** | keeplist + dtypes nailed (`int,int,int,dbl,dbl,dbl,…passthrough…`); `treatment_var = "assigned_treatment"` present for ITT/PP. The mapping above reproduces the stored frame **structurally bit-exact** with `weight` to **6.7e-16 / 2.2e-16** (machine ε, far inside the staged 1e-6) across ITT-unweighted, ITT-weighted (IPCW), and PP-weighted (switch+censor). The make-or-break was the **row-order re-sort** (`id, period_new, trial_period`) — tters' native order differs from the stored `index` order. |
-| **(c)** | **DOWNSTREAM PARITY** | Inheriting the base `sample_expanded_data` (→ our `read_expanded_data`) gives RNG-identical sampling. With seeded `load_expanded_data(seed = 1234, p_control = 0.5)`: sampled `outcome_data` **identical**, no-sample load **value-identical**, `fit_msm` coefficients agree to **1.4e-11** (glm float noise from the ~1e-16 weight perturbation). |
+| **(b)** | **The DATA CONTRACT** | keeplist + dtypes nailed (`int,int,int,dbl,dbl,dbl,…passthrough…`); `treatment_var = "assigned_treatment"` present for ITT/PP. The mapping above reproduces the stored frame **structurally bit-exact** with `weight` to **6.7e-16 / 2.2e-16** (machine ε, far inside the enforced **1e-12** weight-application tolerance) across ITT-unweighted, ITT-weighted (IPCW), and PP-weighted (switch+censor). The make-or-break was the **row-order re-sort** (`id, period_new, trial_period`) — tters' native order differs from the stored `index` order. |
+| **(c)** | **DOWNSTREAM PARITY** | Inheriting the base `sample_expanded_data` (→ our `read_expanded_data`) gives RNG-identical sampling. With seeded `load_expanded_data(seed = 1234, p_control = 0.5)`: sampled `outcome_data` **identical**, no-sample load **value-identical**, `fit_msm` coefficients agree to **1.4e-11** (observed; the suite enforces rel **1e-6** — glm float noise from the ~1e-16 weight perturbation). |
 | **(d)** | **DEPS / FALLBACK** | `Suggests: TrialEmulation, data.table`; backend defined conditionally in `.onLoad`; `data.table` use enabled via the `.datatable.aware` namespace flag (documented opt-in for `Suggests`-level data.table). No new Rust dep. |
 | **maintainers** | **#243** | gravesti green-lit both **#1** (companion) and **#2** (`Suggests` fallback); sole constraint *"don't add to CRAN time"*. The detailed questions (interface / pin / contract) are still **unanswered**, so the documented assumptions stand: target the **`trial_sequence()` S4 interface**, pin **v0.0.4.11**, companion-expansion approach. Re-verify the thread before any follow-up. |
 

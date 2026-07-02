@@ -26,7 +26,7 @@
 #   * E01 + data_censored inputs also back the two error-mapping tests
 #
 # Provenance: these are COPIES of this repo's Oracle-generated fixtures
-# (Apache-2.0; see inst/extdata/NOTICE). The source of truth remains `fixtures/`.
+# (Apache-2.0; see inst/NOTICE). The source of truth remains `fixtures/`.
 
 args <- commandArgs(trailingOnly = FALSE)
 file_arg <- sub("^--file=", "", args[grep("^--file=", args)])

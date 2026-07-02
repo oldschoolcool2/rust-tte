@@ -23,7 +23,15 @@ maximum-db-staleness = "P14D"
 yanked = "deny"
 unmaintained = "workspace"
 ignore = [
-    # { id = "RUSTSEC-0000-0000", reason = "why acceptable; tracking link" },
+    # quick-xml XML-parsing DoS advisories. quick-xml is a transitive dep reached
+    # ONLY via polars -> object_store, which uses it to parse cloud-storage API
+    # (S3/Azure) XML responses. This engine reads local Parquet only; it never
+    # makes cloud calls or parses untrusted XML, so the vulnerable paths are
+    # unreachable. Both are DoS-class (no memory-safety/RCE). No semver-compatible
+    # patched quick-xml exists for the pinned polars 0.54.4 / object_store 0.13.2;
+    # remove these once polars/object_store ship a patched quick-xml.
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml quadratic-runtime DoS; unreachable (no cloud/untrusted-XML path); no compatible patch under polars 0.54.4" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml namespace-alloc DoS; unreachable (no cloud/untrusted-XML path); no compatible patch under polars 0.54.4" },
 ]
 
 [licenses]
