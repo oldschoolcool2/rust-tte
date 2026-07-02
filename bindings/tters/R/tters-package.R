@@ -1,7 +1,14 @@
+# The importFrom tags make the hard runtime deps explicit to R CMD check.
+# `bit64` stays a load-only dependency: importing `integer64` neither attaches
+# bit64 nor changes the exact int64 round-trip — the Rust side constructs the
+# classed vector directly (see docs/011-phase-9-exact-wide-integer-frame-io/).
+
 #' tters: Sequential Target Trial Emulation Data Expansion
 #'
 #' A thin R binding over the verified `tte-expand` Rust + Polars engine.
 #'
+#' @importFrom bit64 integer64
+#' @importFrom methods is isClass new setClass setMethod
 #' @keywords internal
 "_PACKAGE"
 

@@ -14,7 +14,9 @@ Roxygen: list(markdown = TRUE)
 Depends:
     R (>= 4.2)
 Imports:
-    bit64
+    bit64,
+    methods,
+    utils
 Suggests:
     arrow,
     data.table,
