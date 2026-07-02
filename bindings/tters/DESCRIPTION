@@ -1,6 +1,6 @@
 Package: tters
 Title: Sequential Target Trial Emulation Data Expansion (Rust + Polars Backend)
-Version: 0.1.0
+Version: 0.1.1
 Authors@R:
     person("Michael", "Batech", , "oldschoolcool@gmail.com", role = c("aut", "cre"))
 Description: Fast, verified data-expansion stage for sequential target trial
@@ -14,7 +14,9 @@ Roxygen: list(markdown = TRUE)
 Depends:
     R (>= 4.2)
 Imports:
-    bit64
+    bit64,
+    methods,
+    utils
 Suggests:
     arrow,
     data.table,

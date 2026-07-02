@@ -25,6 +25,12 @@
 # inert when data.table is not installed.
 .datatable.aware <- TRUE
 
+# data.table's non-standard evaluation (`:=` assignment, unquoted `setorder()`
+# keys) reads as undefined globals to R CMD check's codetools scan; declare the
+# two flagged symbols so the check stays clean. Purely a static-analysis hint —
+# no runtime effect.
+globalVariables(c(":=", "id"))
+
 # Session-local flag: has the S4 backend been registered yet? The
 # `te_datastore_tters` class `contains = "te_datastore"`, whose parent lives in
 # `TrialEmulation`, so the class cannot be defined at collation time when
