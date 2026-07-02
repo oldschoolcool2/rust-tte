@@ -203,6 +203,11 @@ jobs:
       # Pin the EXACT version parity was validated against (Suggests allows newer,
       # but the guard holds the Oracle fixed while OUR code changes).
       - name: Install TrialEmulation (pinned v0.0.4.11)
+        # Authenticate the GitHub API read: the bundled remotes PAT is
+        # rate-limited and fails on shared runners. Passed via env: (never
+        # interpolated into the run: block) per the template-injection guard.
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: Rscript -e 'remotes::install_github("Causal-LDA/TrialEmulation@v0.0.4.11", upgrade = "never")'
 
       - name: R CMD INSTALL tters (debug)
