@@ -214,10 +214,15 @@ jobs:
         run: DEBUG=true R CMD INSTALL bindings/tters
 
       - name: testthat te_datastore parity suite
+        # Attach TrialEmulation + data.table so their S4 generics (e.g.
+        # read_expanded_data) resolve for the suite's bare calls -- the natural
+        # usage context for a te_datastore backend (tters registers methods on
+        # TrialEmulation's generics; the generics must be in scope to dispatch).
         run: |
           Rscript -e '
             library(tters)
-            stopifnot(requireNamespace("TrialEmulation", quietly = TRUE))
+            library(TrialEmulation)
+            library(data.table)
             testthat::test_dir(
               "bindings/tters/tests/testthat",
               filter = "te-datastore-tters",
