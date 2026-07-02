@@ -29,7 +29,7 @@ te_available <- function() {
 # Build a configured (un-expanded) trial_sequence on data_censored.
 build_seq <- function(estimand = c("ITT", "PP"), weighted = TRUE) {
   estimand <- match.arg(estimand)
-  data_censored <- get("data_censored", envir = asNamespace("TrialEmulation"))
+  data_censored <- TrialEmulation::data_censored
   ts <- TrialEmulation::trial_sequence(estimand) |>
     TrialEmulation::set_data(
       data = data_censored, id = "id", period = "period",
@@ -175,7 +175,7 @@ test_that("downstream load + seeded sampling + fit_msm match the default path (D
 
 test_that("AT estimand gracefully falls back to R (D4)", {
   skip_if_not(te_available(), "TrialEmulation/data.table not installed")
-  data_censored <- get("data_censored", envir = asNamespace("TrialEmulation"))
+  data_censored <- TrialEmulation::data_censored
   at <- TrialEmulation::trial_sequence("AT") |>
     TrialEmulation::set_data(
       data = data_censored, id = "id", period = "period",
