@@ -19,7 +19,7 @@ Suggests:
     arrow,
     data.table,
     testthat (>= 3.0.0),
-    TrialEmulation
+    TrialEmulation (>= 0.0.4.11)
 Config/testthat/edition: 3
 Config/rextendr/version: 0.5.0
 SystemRequirements: Cargo (Rust's package manager), rustc >= 1.95.0
