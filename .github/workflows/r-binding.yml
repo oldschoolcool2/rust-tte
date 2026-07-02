@@ -170,3 +170,53 @@ jobs:
             message("self-test fixtures: ", ex)
             testthat::test_dir("tters/tests/testthat", stop_on_failure = TRUE, reporter = "summary")
           '
+
+  te-datastore-parity:
+    name: te_datastore parity vs TrialEmulation
+    runs-on: ubuntu-latest
+    # The te_datastore parity suite skips unless TrialEmulation is installed, and
+    # the round-trip job above does not install it -- so those assertions never
+    # run there. This job installs the pinned upstream and executes the parity
+    # suite, giving the "expand in Rust, present through te_datastore" claim
+    # continuous regression cover (the mapping reads private upstream S4
+    # internals, so an upstream or binding change could otherwise break it
+    # silently). Debug install: correctness, not performance.
+    env:
+      # No debug info: a debug-info Polars build can exhaust the runner disk.
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # data.table + arrow (arrow pulls bit64, a hard Imports); remotes to pin the
+      # exact upstream the parity was validated against.
+      - name: Install R dependencies
+        run: Rscript -e 'install.packages(c("testthat", "arrow", "data.table", "remotes"))'
+
+      # Pin the EXACT version parity was validated against (Suggests allows newer,
+      # but the guard holds the Oracle fixed while OUR code changes).
+      - name: Install TrialEmulation (pinned v0.0.4.11)
+        run: Rscript -e 'remotes::install_github("Causal-LDA/TrialEmulation@v0.0.4.11", upgrade = "never")'
+
+      - name: R CMD INSTALL tters (debug)
+        run: DEBUG=true R CMD INSTALL bindings/tters
+
+      - name: testthat te_datastore parity suite
+        run: |
+          Rscript -e '
+            library(tters)
+            stopifnot(requireNamespace("TrialEmulation", quietly = TRUE))
+            testthat::test_dir(
+              "bindings/tters/tests/testthat",
+              filter = "te-datastore-tters",
+              stop_on_failure = TRUE,
+              reporter = "summary"
+            )
+          '
