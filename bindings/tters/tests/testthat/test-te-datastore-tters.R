@@ -130,19 +130,19 @@ test_that("read_expanded_data honours period + subset_condition (D1)", {
   b <- expand_both(build_seq("ITT", weighted = TRUE))
   store <- b$tt_seq@expansion@datastore
 
-  all_rows <- read_expanded_data(store, period = NULL, subset_condition = NULL)
+  all_rows <- TrialEmulation::read_expanded_data(store, period = NULL, subset_condition = NULL)
   expect_identical(nrow(all_rows), b$tt_seq@expansion@datastore@N)
 
-  p1 <- read_expanded_data(store, period = 1L, subset_condition = NULL)
+  p1 <- TrialEmulation::read_expanded_data(store, period = 1L, subset_condition = NULL)
   expect_true(all(p1$trial_period == 1L))
   expect_identical(nrow(p1), sum(b$got$trial_period == 1L))
 
-  sub <- read_expanded_data(store, period = NULL, subset_condition = "x2 > 0")
+  sub <- TrialEmulation::read_expanded_data(store, period = NULL, subset_condition = "x2 > 0")
   expect_true(all(sub$x2 > 0))
   expect_identical(nrow(sub), sum(b$got$x2 > 0))
 
   expect_error(
-    read_expanded_data(store, period = -1L, subset_condition = NULL),
+    TrialEmulation::read_expanded_data(store, period = -1L, subset_condition = NULL),
     "non-negative"
   )
 })
