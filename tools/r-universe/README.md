@@ -71,8 +71,12 @@ GitHub actions for the repository owner to perform (or to explicitly approve):
    with:
 
    ```r
-   install.packages("tters", repos = "https://oldschoolcool2.r-universe.dev")
+   install.packages("tters",
+     repos = c("https://oldschoolcool2.r-universe.dev", "https://cloud.r-project.org"))
    ```
+
+   The CRAN mirror in `repos` is required on a clean machine: it resolves
+   `tters`' hard dependency `bit64`, which the universe repo does not carry.
 
 ## Offline / source tarball (independent of r-universe)
 
