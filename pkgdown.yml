@@ -1,0 +1,9 @@
+pandoc: 3.8.3
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  tters: tters.html
+last_built: 2026-07-03T12:56Z
+urls:
+  reference: https://oldschoolcool2.github.io/rust-tte/reference
+  article: https://oldschoolcool2.github.io/rust-tte/articles

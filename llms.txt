@@ -1,0 +1,256 @@
+# tters — R binding for `tte-expand` (extendr)
+
+[![r-universe](https://oldschoolcool2.r-universe.dev/badges/tters)](https://oldschoolcool2.r-universe.dev/tters)
+
+`tters` is the R companion package that exposes the `tte-expand` Rust
+core crate to R via [extendr](https://extendr.github.io/). It
+reproduces, bit-for-bit, the sequential trial-emulation data expansion
+of the
+[`TrialEmulation`](https://cran.r-project.org/package=TrialEmulation) R
+package, with a Parquet path, an in-memory `data.frame` path, and a
+`TrialEmulation` companion backend (see
+[`../../ROADMAP.md`](https://oldschoolcool2.github.io/ROADMAP.md)).
+
+## Installation
+
+``` r
+
+install.packages("tters",
+  repos = c("https://oldschoolcool2.r-universe.dev", "https://cloud.r-project.org"))
+```
+
+No Rust toolchain is required to install from r-universe (binary builds
+are provided). Building from source needs Cargo / `rustc >= 1.95`.
+
+## How it fits together
+
+    bindings/tters/
+    ├── DESCRIPTION, NAMESPACE          # R package metadata
+    ├── R/                              # R wrappers (extendr-wrappers.R is generated)
+    ├── configure[.win], cleanup[.win]  # R CMD INSTALL build hooks
+    ├── tools/                          # config.R / msrv.R (toolchain checks)
+    └── src/
+        ├── Makevars.in, Makevars.win.in, entrypoint.c, tters-win.def
+        └── rust/                       # a DETACHED Cargo workspace
+            ├── Cargo.toml              # extendr-api + path dep on ../../../../crates/tte-expand
+            └── src/lib.rs              # #[extendr] FFI shims
+
+The Rust crate under `src/rust/` declares an **empty `[workspace]`
+table**, making it its own workspace root with its own `Cargo.lock`.
+This is required so `R CMD INSTALL` builds a self-contained,
+reproducible (CRAN-vendorable) crate. It is excluded from the repo-root
+workspace (`exclude = ["bindings/tters"]` in the root `Cargo.toml`) and
+is therefore **not** linted by the main CI `--workspace` clippy job —
+extendr’s macro-expanded FFI would otherwise trip pedantic lints.
+
+## Companion backend for `TrialEmulation`
+
+`tters` plugs into upstream `TrialEmulation`’s `te_datastore` extension
+API so a `trial_sequence()` pipeline runs the expensive **expansion in
+Rust** while estimation (sampling + the marginal structural model) stays
+in R, consuming the Rust output **bit-identically** to the default path.
+This is `Suggests`-level and opt-in: `TrialEmulation` is never an
+`Imports`, and the backend is a no-op for anyone who does not call it.
+Validated against `TrialEmulation` **v0.0.4.11**.
+
+Set up the trial sequence exactly as for
+`TrialEmulation::expand_trials()`, then call
+[`expand_trials_tters()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trials_tters.md)
+instead — everything downstream is unchanged:
+
+``` r
+
+library(TrialEmulation)
+library(tters)
+data("data_censored")
+
+trial <- trial_sequence("ITT") |>
+  set_data(data = data_censored) |>
+  set_censor_weight_model(
+    censor_event = "censored", numerator = ~x2, denominator = ~ x2 + x1,
+    pool_models = "numerator",
+    model_fitter = stats_glm_logit(save_path = tempfile())
+  ) |>
+  calculate_weights() |>                       # weight MODELS fit in R
+  set_outcome_model(adjustment_terms = ~x2) |>
+  set_expansion_options(output = save_to_tters(), chunk_size = 0)
+
+trial <- expand_trials_tters(trial)            # the EXPANSION runs in Rust
+trial <- load_expanded_data(trial, seed = 1234, p_control = 0.5)
+trial <- fit_msm(trial)                        # estimation stays in R
+```
+
+The produced frame is byte-equivalent to
+`TrialEmulation::expand_trials()` (structural columns bit-exact,
+`weight` to within machine precision), so `load_expanded_data()`,
+`sample_controls()`, and `fit_msm()` behave identically. The split is
+deliberate: **Rust owns the deterministic data transformation; R owns
+statistical estimation.** The per-period weight `wt` computed by
+`calculate_weights()` is read verbatim — Rust performs only its
+deterministic accumulation. If `TrialEmulation` (or the Rust build) is
+unavailable, or for the not-yet-supported AT estimand,
+[`expand_trials_tters()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trials_tters.md)
+falls back to `TrialEmulation::expand_trials()` with a message
+(`fallback = FALSE` to force the Rust path).
+
+## Regenerating with rextendr
+
+These files mirror what
+[`rextendr`](https://extendr.github.io/rextendr/) produces. To
+(re)scaffold or refresh after changing the Rust signatures, from this
+directory in R:
+
+``` r
+
+# install.packages("rextendr")
+rextendr::document()        # regenerates R/extendr-wrappers.R + NAMESPACE
+# or, to (re)create the binding scaffold from scratch:
+# rextendr::use_extendr()
+```
+
+> **Verify pinned versions before relying on this scaffold.**
+> `extendr-api` is pinned to `0.9` and `Config/rextendr/version` to
+> `0.5.0` from research that could not be confirmed against crates.io
+> offline. Run `rextendr::document()` and `cargo update` (with network)
+> to reconcile to the installed versions.
+
+## Caveats for distribution
+
+- **Path dependency vs. CRAN.** `cargo vendor` does not vendor path
+  dependencies, and `R CMD build` only tarballs files under
+  `bindings/tters/`. Before any CRAN submission, either publish
+  `tte-expand` to a registry and switch to a version dependency, or add
+  a build step that copies `crates/tte-expand/` into the package. The
+  vendored Polars tree is also large; r-universe / source install is the
+  realistic channel.
+- **Two lockfiles.** Commit both the root `Cargo.lock` and
+  `src/rust/Cargo.lock` (Dependabot tracks the latter at
+  `/bindings/tters/src/rust`).
+
+# Package index
+
+## TrialEmulation backend
+
+Drop-in te_datastore backend — expand in Rust, estimate in R,
+bit-identically to the default path.
+
+- [`expand_trials_tters()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trials_tters.md)
+  : Expand a sequence of target trials with the Rust + Polars engine
+
+- [`save_to_tters()`](https://oldschoolcool2.github.io/rust-tte/reference/save_to_tters.md)
+  :
+
+  Create a `te_datastore_tters` storage backend
+
+## Trial expansion (Parquet path)
+
+Read a person-time Parquet file, write the expanded trial frame.
+
+- [`expand_trial()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trial.md)
+  : Expand a target-trial person-time dataset (ergonomic wrapper)
+- [`expand_trial_weighted()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trial_weighted.md)
+  : Expand a dataset and attach pre-computed inverse-probability weights
+- [`expand_trial_weighted_fitted()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trial_weighted_fitted.md)
+  : Fit IPW weights and expand a cohort into a weighted trial frame
+  (ergonomic wrapper)
+- [`fit_trial_weights()`](https://oldschoolcool2.github.io/rust-tte/reference/fit_trial_weights.md)
+  : Fit inverse-probability weights for a target-trial cohort (ergonomic
+  wrapper)
+
+## Trial expansion (in-memory data.frame)
+
+Frame-in / frame-out, with no intermediate Parquet.
+
+- [`expand_trial_df()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trial_df.md)
+  : Expand a target-trial cohort data.frame in memory (ergonomic
+  wrapper)
+- [`expand_trial_weighted_df()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trial_weighted_df.md)
+  : Expand a cohort data.frame and attach pre-computed weights, in
+  memory (wrapper)
+- [`expand_trial_weighted_fitted_df()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_trial_weighted_fitted_df.md)
+  : Fit IPW weights and expand a cohort data.frame in one call, in
+  memory (wrapper)
+- [`fit_trial_weights_df()`](https://oldschoolcool2.github.io/rust-tte/reference/fit_trial_weights_df.md)
+  : Fit inverse-probability weights for a cohort data.frame, in memory
+  (wrapper)
+
+## Low-level engine bindings
+
+Thin extendr shims wrapped by the ergonomic functions above.
+
+- [`expand_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_parquet.md)
+  :
+
+  Expand a prepared person-time Parquet dataset into the sequential
+  target-trial layout and write the result to `output_path`.
+
+- [`expand_weighted_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_weighted_parquet.md)
+  :
+
+  Expand a person-time Parquet dataset and attach pre-computed
+  inverse-probability weights, writing the weighted frame to
+  `output_path`.
+
+- [`expand_weighted_fitted_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_weighted_fitted_parquet.md)
+  : Fit the IPW weights in Rust, expand the cohort, apply the weights,
+  and write the weighted trial frame — a raw cohort to a weighted,
+  expanded frame in one call (no pre-computed factor table).
+
+- [`fit_weights_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/fit_weights_parquet.md)
+  :
+
+  Fit the inverse-probability **weight factor** for a Parquet cohort in
+  Rust and write the per-`(id, period)` factor table
+  (`id, period, weight_factor`).
+
+- [`expand_df()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_df.md)
+  :
+
+  Expand an in-memory cohort `data.frame` into the sequential
+  target-trial layout and return the result as a `data.frame` — the
+  frame-in/frame-out analogue of
+  [`expand_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_parquet.md),
+  with no intermediate Parquet.
+
+- [`expand_weighted_df()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_weighted_df.md)
+  :
+
+  Expand an in-memory cohort and attach pre-computed inverse-probability
+  weights, returning the weighted frame as a `data.frame` — the
+  frame-in/frame-out analogue of
+  [`expand_weighted_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_weighted_parquet.md).
+
+- [`expand_weighted_fitted_df()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_weighted_fitted_df.md)
+  :
+
+  Fit the IPW weights for an in-memory cohort, expand, apply, and return
+  the weighted trial frame as a `data.frame` — a raw cohort `data.frame`
+  straight to a weighted, expanded `data.frame` in one call (no
+  pre-computed factor table, no intermediate Parquet). The
+  frame-in/frame-out analogue of
+  [`expand_weighted_fitted_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/expand_weighted_fitted_parquet.md).
+  A 64-bit integer `id`
+  ([`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html))
+  round-trips exactly.
+
+- [`fit_weights_df()`](https://oldschoolcool2.github.io/rust-tte/reference/fit_weights_df.md)
+  :
+
+  Fit the inverse-probability weight factor for an in-memory cohort and
+  return the per-`(id, period)` factor table
+  (`id, period, weight_factor`) as a `data.frame` — the
+  frame-in/frame-out analogue of
+  [`fit_weights_parquet()`](https://oldschoolcool2.github.io/rust-tte/reference/fit_weights_parquet.md).
+
+## Package
+
+- [`tters`](https://oldschoolcool2.github.io/rust-tte/reference/tters-package.md)
+  [`tters-package`](https://oldschoolcool2.github.io/rust-tte/reference/tters-package.md)
+  : tters: Sequential Target Trial Emulation Data Expansion
+
+# Articles
+
+### All vignettes
+
+- [Using tters with
+  TrialEmulation](https://oldschoolcool2.github.io/rust-tte/articles/tters.md):
