@@ -230,3 +230,80 @@ jobs:
               reporter = "summary"
             )
           '
+
+  r-cmd-check:
+    name: R CMD check (--as-cran)
+    runs-on: ubuntu-latest
+    # Runs `R CMD check --as-cran`, replicating r-universe's build FAITHFULLY (the
+    # pipeline that certifies 0 errors / 0 warnings / 0 notes). A plain
+    # `rcmdcheck(path=...)` cannot work: `R CMD build` tarballs only files under
+    # bindings/tters/, so the committed `path` dep on the core crate escapes the
+    # tarball. So we run the `.prepare` hook to rewrite that path dep into a
+    # git+pinned-rev dep on this repo at HEAD, `R CMD build` a self-contained tarball
+    # WITH built vignettes (inst/doc), then `R CMD check` installs it as a RELEASE
+    # build that fetches the git core over the network -- exactly what r-universe
+    # checks. Debug builds instead surface `abort`/`exit`/`stderr` symbols from the
+    # Rust static lib and drop inst/doc, both of which are release/vignette artifacts,
+    # not package defects. `--as-cran` forces Suggests, so they are all installed.
+    env:
+      # No debug info in the release build (disk budget); LTO stays on.
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+      # Skip the remote CRAN-incoming probe (network flake / irrelevant off-CRAN).
+      _R_CHECK_CRAN_INCOMING_REMOTE_: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so build-offline-tarball.sh can `git clone --bare` the
+          # workspace and vendor the git-pinned core at HEAD.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        run: >
+          Rscript -e 'install.packages(c("rcmdcheck", "testthat", "arrow",
+          "data.table", "knitr", "rmarkdown", "remotes"))'
+
+      # `--as-cran` forces Suggests to be installed; pin the exact upstream the
+      # binding targets. PAT passed via env: (never interpolated) per the guard.
+      - name: Install TrialEmulation (pinned v0.0.4.11)
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          Rscript -e 'remotes::install_github("Causal-LDA/TrialEmulation@v0.0.4.11",
+          upgrade = "never")'
+
+      # Rewrite the committed path dep on the core crate into a git+pinned-rev dep on
+      # this repo at HEAD, so the tarball is self-contained (the same hook r-universe
+      # runs). The committed working tree is untouched -- only this throwaway checkout
+      # is edited. HEAD is pushed, so the pinned rev is fetchable at check time.
+      - name: Synthesize the git-dep form (r-universe .prepare hook)
+        working-directory: bindings/tters
+        run: sh .prepare
+
+      # Build WITH vignettes so inst/doc exists (no vignette-packaging warnings).
+      - name: R CMD build (with vignettes)
+        run: R CMD build bindings/tters
+
+      # Release install (fetches the git core over the network) -> matches the
+      # r-universe result. check_dir on RUNNER_TEMP keeps the vendored-Polars build
+      # off the workspace volume.
+      - name: R CMD check --as-cran
+        run: |
+          Rscript -e '
+            tb <- list.files(".", pattern = "^tters_.*\\.tar\\.gz$", full.names = TRUE)[1]
+            stopifnot(!is.na(tb), nzchar(tb), file.exists(tb))
+            rcmdcheck::rcmdcheck(
+              tb,
+              args = c("--no-manual", "--as-cran"),
+              error_on = "warning",
+              check_dir = file.path(Sys.getenv("RUNNER_TEMP"), "check")
+            )
+          '
