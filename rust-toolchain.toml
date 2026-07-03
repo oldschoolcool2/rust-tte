@@ -3,7 +3,7 @@
 # repo and auto-installs the channel + components.
 #
 # This is the DEV/CI toolchain, NOT the MSRV. MSRV is declared separately via
-# `rust-version` in Cargo.toml (= 1.85). To bump, edit `channel` in one commit.
+# `rust-version` in Cargo.toml (= 1.95). To bump, edit `channel` in one commit.
 # Latest stable as of 2026-06 is 1.95.0.
 
 [toolchain]

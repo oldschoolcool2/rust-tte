@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/oldschoolcool2/rust-tte/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/oldschoolcool2/rust-tte/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
-  <img alt="Status" src="https://img.shields.io/badge/status-phase%200%20scaffolding-orange.svg">
+  <a href="https://oldschoolcool2.r-universe.dev/tters"><img alt="r-universe" src="https://oldschoolcool2.r-universe.dev/badges/tters"></a>
 </p>
 
 > **Repository:** `rust-tte` &nbsp;·&nbsp; **Core crate:** `tte-expand` &nbsp;·&nbsp; **R companion:** `tters`
@@ -87,18 +87,61 @@ rust-tte/
 
 ## Status
 
-✅ **Phase 0 — scaffold complete (2026-06-29).** The repository structure,
-tooling, and contract boundaries are in place; the workspace compiles and passes
-the strict CI gates (`clippy -D warnings`, `fmt --check`, `cargo test` with the
-contract test `#[ignore]`d). The engine itself is the **next** step — its public
-entry points are documented `unimplemented!()` stubs. Remaining Phase-0 sign-off
-(generating the Parquet fixtures from the R Oracle and freezing `STRUCTURAL_COLS`)
-needs the pinned R environment — see the
-[Phase-0 summary](docs/002-phase-0-scaffold/001-phase-0-summary.md),
-[`ROADMAP.md`](ROADMAP.md), and
-[`docs/001-initial-ideations/`](docs/001-initial-ideations/).
+✅ **Feature-complete and verified (v0.1.1).** The engine reproduces the
+sequential trial-emulation expansion **bit-for-bit** against the `TrialEmulation`
+Oracle — ITT expansion, per-protocol artificial censoring, weight application, and
+(behind the `weights-fit` feature) in-Rust IPW weight fitting. Structural columns
+match exactly and fitted weights to machine precision; downstream MSM coefficients
+agree with the R path to ~1e-10.
 
-## Quickstart
+Correctness ships as a **reproducibility certificate**: `make verify` recomputes
+every fixture's SHA-256 against the manifest and re-checks bit-exact equivalence
+(see [`report/certificate.md`](report/certificate.md)). The R companion package
+**`tters`** is installable from
+[r-universe](https://oldschoolcool2.r-universe.dev/tters) (v0.1.1, `R CMD check`
+green). See [`ROADMAP.md`](ROADMAP.md) for the phase-by-phase build history and
+[`docs/`](docs/) for design rationale.
+
+## Use it from R
+
+The `tters` companion package ships on
+[r-universe](https://oldschoolcool2.r-universe.dev/tters) — no Rust toolchain is
+needed to *use* it:
+
+```r
+install.packages("tters",
+  repos = c("https://oldschoolcool2.r-universe.dev", "https://cloud.r-project.org"))
+```
+
+Set up a `TrialEmulation` trial sequence exactly as usual, then run the
+expansion in Rust with `expand_trials_tters()` — everything downstream is
+unchanged and bit-identical:
+
+```r
+library(TrialEmulation)
+library(tters)
+data("data_censored")
+
+trial <- trial_sequence("ITT") |>
+  set_data(data = data_censored) |>
+  set_censor_weight_model(
+    censor_event = "censored", numerator = ~x2, denominator = ~ x2 + x1,
+    pool_models = "numerator",
+    model_fitter = stats_glm_logit(save_path = tempfile())
+  ) |>
+  calculate_weights() |>                    # weight MODELS fit in R
+  set_outcome_model(adjustment_terms = ~x2) |>
+  set_expansion_options(output = save_to_tters(), chunk_size = 0)
+
+trial <- expand_trials_tters(trial)         # the EXPANSION runs in Rust
+trial <- load_expanded_data(trial, seed = 1234, p_control = 0.5)
+trial <- fit_msm(trial)                     # estimation stays in R
+```
+
+Full R usage — including the Parquet and in-memory `data.frame` paths — is in
+[`bindings/tters/README.md`](bindings/tters/README.md).
+
+## Build from source (Rust)
 
 > Requires a recent stable Rust toolchain (pinned via [`rust-toolchain.toml`](rust-toolchain.toml)).
 
@@ -106,8 +149,7 @@ needs the pinned R environment — see the
 # Build the workspace (this also generates Cargo.lock on first run)
 cargo build
 
-# Run the fixture-driven tests (the engine stub is unimplemented; the contract
-# test is #[ignore]d until it lands)
+# Run the fixture-driven tests (bit-exact structural columns vs the R Oracle)
 cargo test
 
 # Lint + format checks (also run in CI)

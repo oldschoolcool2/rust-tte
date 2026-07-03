@@ -51,7 +51,7 @@ docs/
 
 | File | What it is |
 |---|---|
-| [`001-phase-0-summary.md`](002-phase-0-scaffold/001-phase-0-summary.md) | Phase-0 sign-off: what each agent built, the verification (compiles / clippy / fmt / test green), decisions (Polars 0.54.4, MSRV 1.88, `dtype-categorical`), and the remaining open design considerations. |
+| [`001-phase-0-summary.md`](002-phase-0-scaffold/001-phase-0-summary.md) | Phase-0 sign-off: what each agent built, the verification (compiles / clippy / fmt / test green), decisions (Polars 0.54.4, MSRV 1.95, `dtype-categorical`), and the remaining open design considerations. |
 
 ### `003-phase-1-itt-expansion/`
 

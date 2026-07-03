@@ -1,11 +1,23 @@
 # tters — R binding for `tte-expand` (extendr)
 
+[![r-universe](https://oldschoolcool2.r-universe.dev/badges/tters)](https://oldschoolcool2.r-universe.dev/tters)
+
 `tters` is the R companion package that exposes the `tte-expand` Rust core crate
 to R via [extendr](https://extendr.github.io/). It reproduces, bit-for-bit, the
 sequential trial-emulation data expansion of the
 [`TrialEmulation`](https://cran.r-project.org/package=TrialEmulation) R package,
 with a Parquet path, an in-memory `data.frame` path, and a `TrialEmulation`
 companion backend (see [`../../ROADMAP.md`](../../ROADMAP.md)).
+
+## Installation
+
+```r
+install.packages("tters",
+  repos = c("https://oldschoolcool2.r-universe.dev", "https://cloud.r-project.org"))
+```
+
+No Rust toolchain is required to install from r-universe (binary builds are
+provided). Building from source needs Cargo / `rustc >= 1.95`.
 
 ## How it fits together
 

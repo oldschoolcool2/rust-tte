@@ -1,7 +1,8 @@
 # Contributing to tte-expand
 
 Thanks for your interest! This project has an unusual, **contract-first** build
-model — please read this before opening a PR.
+model — please read this before opening a PR. By participating, you agree to
+abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## The contract boundary
 

@@ -1,0 +1,11 @@
+citHeader("To cite tters in publications, please use:")
+
+bibentry(
+  bibtype = "Manual",
+  title   = "{tters}: Sequential Target Trial Emulation Data Expansion (Rust + Polars Backend)",
+  author  = person("Michael", "Batech",
+                   comment = c(ORCID = "0000-0001-9570-8180")),
+  year    = "2026",
+  note    = "R package version 0.1.1",
+  url     = "https://github.com/oldschoolcool2/rust-tte"
+)

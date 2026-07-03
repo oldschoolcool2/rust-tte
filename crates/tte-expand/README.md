@@ -6,9 +6,10 @@ output of the R [`TrialEmulation`](https://github.com/Causal-LDA/TrialEmulation)
 package (Apache-2.0), validated fixture-by-fixture against it as an Oracle.
 
 - `#![forbid(unsafe_code)]`, dtype-exact, deterministic integer/categorical output.
-- Lazy Polars engine; out-of-core streaming is a later (Phase 5) addition.
-- The engine is currently a documented stub — see the crate docs and the
-  repository for status.
+- Lazy Polars engine covering ITT expansion, per-protocol artificial censoring,
+  weight application, and (behind the `weights-fit` feature) in-Rust IPW fitting.
+- Verified bit-for-bit against the Oracle; the R companion `tters` ships on
+  [r-universe](https://oldschoolcool2.r-universe.dev/tters) (v0.1.1).
 
 This crate is part of the [`rust-tte`](https://github.com/oldschoolcool2/rust-tte)
 workspace; see the repository root for the full design, roadmap, and the R

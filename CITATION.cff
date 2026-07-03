@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "tte-expand / tters: verified Rust + Polars backend for sequential target trial emulation data expansion"
+abstract: >-
+  A memory-safe Rust and Polars engine that reproduces, bit-for-bit, the
+  sequential trial-emulation data-expansion stage of the R package
+  TrialEmulation, exposed to R via the tters companion package. Correctness is
+  demonstrated by a computational-reproducibility certificate proving bit-exact
+  equivalence to the reference implementation across an adversarial fixture
+  battery. The methodological basis is sequential target trial emulation
+  (Hernan 2008; Gran 2010; Danaei 2013).
+type: software
+authors:
+  - given-names: Michael
+    family-names: Batech
+    email: oldschoolcool@gmail.com
+    orcid: "https://orcid.org/0000-0001-9570-8180"
+version: "0.1.1"
+date-released: "2026-07-02"
+license: Apache-2.0
+repository-code: "https://github.com/oldschoolcool2/rust-tte"
+url: "https://oldschoolcool2.r-universe.dev/tters"
+keywords:
+  - target trial emulation
+  - causal inference
+  - reproducible research
+  - epidemiology
+  - real-world evidence
+  - Rust
+  - Polars
+  - R
+references:
+  - type: software
+    title: "TrialEmulation: an R package for causal inference by target trial emulation"
+    notes: "The reference implementation used, unmodified, as the correctness Oracle."
+    repository-code: "https://github.com/Causal-LDA/TrialEmulation"
+    license: Apache-2.0
+    authors:
+      - given-names: Isaac
+        family-names: Gravestock
+      - given-names: Li
+        family-names: Su

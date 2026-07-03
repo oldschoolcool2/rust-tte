@@ -1,0 +1,38 @@
+name: Feature request / scope question
+description: Propose an enhancement or ask whether something is in scope.
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: **v1 is sequential trial emulation only** (Hernan 2008 /
+        Gran 2010 / Danaei 2013). The clone-censor-weight (CCW) grace-period
+        design and new statistical solvers (glm / sandwich) are intentionally
+        out of scope — see `CONTRIBUTING.md`.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and what is missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to see? API sketches welcome.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Rust engine (tte-expand)
+        - R package (tters)
+        - Docs / examples
+        - CI / tooling
+        - Not sure
+    validations:
+      required: false

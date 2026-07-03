@@ -2,7 +2,9 @@ Package: tters
 Title: Sequential Target Trial Emulation Data Expansion (Rust + Polars Backend)
 Version: 0.1.1
 Authors@R:
-    person("Michael", "Batech", , "oldschoolcool@gmail.com", role = c("aut", "cre"))
+    person("Michael", "Batech", , "oldschoolcool@gmail.com",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-9570-8180"))
 Description: Fast, verified data-expansion stage for sequential target trial
     emulation, backed by a Rust and Polars engine via the 'extendr' crate.
     Reproduces, bit-for-bit, the expansion output of the 'TrialEmulation' R
@@ -25,6 +27,7 @@ Suggests:
 Config/testthat/edition: 3
 Config/rextendr/version: 0.5.0
 SystemRequirements: Cargo (Rust's package manager), rustc >= 1.95.0
-URL: https://github.com/oldschoolcool2/rust-tte
+URL: https://github.com/oldschoolcool2/rust-tte,
+    https://oldschoolcool2.r-universe.dev/tters
 BugReports: https://github.com/oldschoolcool2/rust-tte/issues
 Config/roxygen2/version: 8.0.0
