@@ -39,7 +39,7 @@ validates inputs and uses sensible defaults. The heavy lifting happens in the
 Rust core crate.
 }
 \examples{
-\dontrun{
-expand_trial("input.parquet", "expanded.parquet", estimand = "PP")
-}
+input <- system.file("extdata", "edge", "input_E02_id4_canonical.parquet",
+                     package = "tters")
+expand_trial(input, tempfile(fileext = ".parquet"), estimand = "PP")
 }

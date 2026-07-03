@@ -68,16 +68,12 @@ is fitted when either \verb{switch_*} covariate vector is non-\code{NULL}; an IP
 fitted when \code{censor_col} is non-\code{NULL}.
 }
 \examples{
-\dontrun{
-# Per-protocol switch + IPCW censoring, raw cohort to weighted frame in one call:
-expand_trial_weighted_fitted(
-  "cohort.parquet", "weighted.parquet", estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1"),
-  censor_col = "censored",
-  censor_numerator = "x2", censor_denominator = c("x2", "x1"),
-  pool_censor = "none"
-)
-}
+# Raw cohort straight to a weighted, expanded frame in one call:
+input <- system.file("extdata", "weights", "input_data_censored.parquet",
+                     package = "tters")
+expand_trial_weighted_fitted(input, tempfile(fileext = ".parquet"),
+                             estimand = "PP", switch_numerator = "x2",
+                             switch_denominator = c("x2", "x1"))
 }
 \seealso{
 \code{\link[=fit_trial_weights]{fit_trial_weights()}} to write only the \verb{(id, period, weight_factor)}

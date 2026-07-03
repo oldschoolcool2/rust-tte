@@ -21,12 +21,19 @@ is an S4 subclass of \code{TrialEmulation}'s \code{te_datastore}, so the class o
 exists when \code{TrialEmulation} is installed.
 }
 \examples{
-\dontrun{
-library(TrialEmulation)
-trial_sequence("ITT") |>
-  set_data(data = data_censored) |>
-  set_outcome_model(adjustment_terms = ~x2) |>
-  set_expansion_options(output = save_to_tters(), chunk_size = 0)
+# The storage backend on its own:
+save_to_tters()
+
+# Wired into a trial_sequence() pipeline (requires TrialEmulation):
+\donttest{
+if (requireNamespace("TrialEmulation", quietly = TRUE)) {
+  library(TrialEmulation)
+  data("data_censored")
+  trial_sequence("ITT") |>
+    set_data(data = data_censored) |>
+    set_outcome_model(adjustment_terms = ~x2) |>
+    set_expansion_options(output = save_to_tters(), chunk_size = 0)
+}
 }
 }
 \seealso{

@@ -169,12 +169,19 @@ globalVariables(c(":=", "id"))
 #' @seealso [expand_trials_tters()] to populate it with a Rust-fast expansion.
 #' @family save_to
 #' @examples
-#' \dontrun{
-#' library(TrialEmulation)
-#' trial_sequence("ITT") |>
-#'   set_data(data = data_censored) |>
-#'   set_outcome_model(adjustment_terms = ~x2) |>
-#'   set_expansion_options(output = save_to_tters(), chunk_size = 0)
+#' # The storage backend on its own:
+#' save_to_tters()
+#'
+#' # Wired into a trial_sequence() pipeline (requires TrialEmulation):
+#' \donttest{
+#' if (requireNamespace("TrialEmulation", quietly = TRUE)) {
+#'   library(TrialEmulation)
+#'   data("data_censored")
+#'   trial_sequence("ITT") |>
+#'     set_data(data = data_censored) |>
+#'     set_outcome_model(adjustment_terms = ~x2) |>
+#'     set_expansion_options(output = save_to_tters(), chunk_size = 0)
+#' }
 #' }
 #' @export
 save_to_tters <- function() {
@@ -322,16 +329,23 @@ save_to_tters <- function() {
 #'   populated — the same object type [TrialEmulation::expand_trials()] returns.
 #' @seealso [save_to_tters()]; [TrialEmulation::expand_trials()].
 #' @examples
-#' \dontrun{
-#' library(TrialEmulation)
-#' data("data_censored")
-#' trial <- trial_sequence("ITT") |>
-#'   set_data(data = data_censored) |>
-#'   set_outcome_model(adjustment_terms = ~x2) |>
-#'   set_expansion_options(output = save_to_tters(), chunk_size = 0)
-#' trial <- expand_trials_tters(trial)
-#' trial <- load_expanded_data(trial, seed = 1234, p_control = 0.5)
-#' trial <- fit_msm(trial)
+#' \donttest{
+#' if (requireNamespace("TrialEmulation", quietly = TRUE)) {
+#'   library(TrialEmulation)
+#'   data("data_censored")
+#'   trial <- trial_sequence("ITT") |>
+#'     set_data(data = data_censored) |>
+#'     set_censor_weight_model(
+#'       censor_event = "censored", numerator = ~x2, denominator = ~ x2 + x1,
+#'       pool_models = "numerator",
+#'       model_fitter = stats_glm_logit(save_path = tempfile())
+#'     ) |>
+#'     calculate_weights() |>
+#'     set_outcome_model(adjustment_terms = ~x2) |>
+#'     set_expansion_options(output = save_to_tters(), chunk_size = 0)
+#'   trial <- expand_trials_tters(trial)
+#'   load_expanded_data(trial, seed = 1234, p_control = 0.5)
+#' }
 #' }
 #' @export
 expand_trials_tters <- function(object, fallback = TRUE, quiet = FALSE) {

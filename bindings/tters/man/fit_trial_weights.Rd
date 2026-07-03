@@ -69,13 +69,11 @@ A switching model is fitted when either \code{switch_numerator} or
 \code{character(0)} (or \code{NULL}) yields an intercept-only model.
 }
 \examples{
-\dontrun{
 # Per-protocol switching weights (numerator ~ x2, denominator ~ x2 + x1):
-fit_trial_weights(
-  "cohort.parquet", "factors.parquet", estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1")
-)
-}
+input <- system.file("extdata", "weights", "input_data_censored.parquet",
+                     package = "tters")
+fit_trial_weights(input, tempfile(fileext = ".parquet"), estimand = "PP",
+                  switch_numerator = "x2", switch_denominator = c("x2", "x1"))
 }
 \seealso{
 \code{\link[=expand_trial_weighted_fitted]{expand_trial_weighted_fitted()}} to fit and expand in a single call.

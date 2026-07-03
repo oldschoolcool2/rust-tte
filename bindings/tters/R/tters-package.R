@@ -28,9 +28,9 @@
 #'   `"PP"` (per-protocol, censor each trial at the first treatment deviation).
 #' @return `output_path`, invisibly.
 #' @examples
-#' \dontrun{
-#' expand_trial("input.parquet", "expanded.parquet", estimand = "PP")
-#' }
+#' input <- system.file("extdata", "edge", "input_E02_id4_canonical.parquet",
+#'                      package = "tters")
+#' expand_trial(input, tempfile(fileext = ".parquet"), estimand = "PP")
 #' @export
 expand_trial <- function(input_path,
                          output_path,
@@ -80,11 +80,13 @@ expand_trial <- function(input_path,
 #'   application arithmetic is identical for both.
 #' @return `output_path`, invisibly.
 #' @examples
-#' \dontrun{
-#' expand_trial_weighted(
-#'   "input.parquet", "factors.parquet", "weighted.parquet", estimand = "PP"
-#' )
-#' }
+#' input <- system.file("extdata", "weights", "input_data_censored.parquet",
+#'                      package = "tters")
+#' factors <- system.file("extdata", "weights",
+#'                        "input_data_censored_itt_weights.parquet",
+#'                        package = "tters")
+#' expand_trial_weighted(input, factors, tempfile(fileext = ".parquet"),
+#'                       estimand = "ITT")
 #' @export
 expand_trial_weighted <- function(input_path,
                                   factors_path,
@@ -178,13 +180,11 @@ expand_trial_weighted <- function(input_path,
 #' @return `output_path`, invisibly.
 #' @seealso [expand_trial_weighted_fitted()] to fit and expand in a single call.
 #' @examples
-#' \dontrun{
 #' # Per-protocol switching weights (numerator ~ x2, denominator ~ x2 + x1):
-#' fit_trial_weights(
-#'   "cohort.parquet", "factors.parquet", estimand = "PP",
-#'   switch_numerator = "x2", switch_denominator = c("x2", "x1")
-#' )
-#' }
+#' input <- system.file("extdata", "weights", "input_data_censored.parquet",
+#'                      package = "tters")
+#' fit_trial_weights(input, tempfile(fileext = ".parquet"), estimand = "PP",
+#'                   switch_numerator = "x2", switch_denominator = c("x2", "x1"))
 #' @export
 fit_trial_weights <- function(input_path,
                               output_path,
@@ -254,16 +254,12 @@ fit_trial_weights <- function(input_path,
 #' @seealso [fit_trial_weights()] to write only the `(id, period, weight_factor)`
 #'   factor table.
 #' @examples
-#' \dontrun{
-#' # Per-protocol switch + IPCW censoring, raw cohort to weighted frame in one call:
-#' expand_trial_weighted_fitted(
-#'   "cohort.parquet", "weighted.parquet", estimand = "PP",
-#'   switch_numerator = "x2", switch_denominator = c("x2", "x1"),
-#'   censor_col = "censored",
-#'   censor_numerator = "x2", censor_denominator = c("x2", "x1"),
-#'   pool_censor = "none"
-#' )
-#' }
+#' # Raw cohort straight to a weighted, expanded frame in one call:
+#' input <- system.file("extdata", "weights", "input_data_censored.parquet",
+#'                      package = "tters")
+#' expand_trial_weighted_fitted(input, tempfile(fileext = ".parquet"),
+#'                              estimand = "PP", switch_numerator = "x2",
+#'                              switch_denominator = c("x2", "x1"))
 #' @export
 expand_trial_weighted_fitted <- function(input_path,
                                          output_path,
@@ -342,10 +338,12 @@ expand_trial_weighted_fitted <- function(input_path,
 #'   `outcome`); an `integer64` input column is returned as `integer64`.
 #' @seealso [expand_trial()] for the Parquet-path equivalent.
 #' @examples
-#' \dontrun{
-#' cohort <- arrow::read_parquet("input.parquet")
-#' expanded <- expand_trial_df(cohort, estimand = "PP")
-#' }
+#' cohort <- data.frame(
+#'   id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+#'   treatment = c(1L, 1L, 0L, 0L, 1L), eligible = c(1L, 0L, 0L, 1L, 0L),
+#'   outcome = c(0L, 0L, 1L, 0L, 0L)
+#' )
+#' expand_trial_df(cohort, estimand = "ITT")
 #' @export
 expand_trial_df <- function(cohort,
                             id_col = "id",
@@ -391,9 +389,16 @@ expand_trial_df <- function(cohort,
 #' @return A `data.frame` with the six structural columns plus `weight`.
 #' @seealso [expand_trial_weighted()] for the Parquet-path equivalent.
 #' @examples
-#' \dontrun{
-#' weighted <- expand_trial_weighted_df(cohort, factors, estimand = "PP")
-#' }
+#' cohort <- data.frame(
+#'   id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+#'   treatment = c(1L, 1L, 0L, 0L, 1L), eligible = c(1L, 0L, 0L, 1L, 0L),
+#'   outcome = c(0L, 0L, 1L, 0L, 0L)
+#' )
+#' factors <- data.frame(
+#'   id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+#'   weight_factor = c(1, 0.9, 1.05, 1, 1.1)
+#' )
+#' expand_trial_weighted_df(cohort, factors, estimand = "PP")
 #' @export
 expand_trial_weighted_df <- function(cohort,
                                      factors,
@@ -454,11 +459,12 @@ expand_trial_weighted_df <- function(cohort,
 #' @seealso [fit_trial_weights()] for the Parquet-path equivalent;
 #'   [expand_trial_weighted_fitted_df()] to fit and expand in a single call.
 #' @examples
-#' \dontrun{
-#' factors <- fit_trial_weights_df(
-#'   cohort, estimand = "PP",
-#'   switch_numerator = "x2", switch_denominator = c("x2", "x1")
-#' )
+#' # Fitting needs covariates, so load the shipped `data_censored` cohort:
+#' if (requireNamespace("arrow", quietly = TRUE)) {
+#'   cohort <- as.data.frame(arrow::read_parquet(system.file(
+#'     "extdata", "weights", "input_data_censored.parquet", package = "tters")))
+#'   factors <- fit_trial_weights_df(cohort, estimand = "PP",
+#'     switch_numerator = "x2", switch_denominator = c("x2", "x1"))
 #' }
 #' @export
 fit_trial_weights_df <- function(cohort,
@@ -520,14 +526,11 @@ fit_trial_weights_df <- function(cohort,
 #' @seealso [expand_trial_weighted_fitted()] for the Parquet-path equivalent;
 #'   [fit_trial_weights_df()] to return only the factor table.
 #' @examples
-#' \dontrun{
-#' weighted <- expand_trial_weighted_fitted_df(
-#'   cohort, estimand = "PP",
-#'   switch_numerator = "x2", switch_denominator = c("x2", "x1"),
-#'   censor_col = "censored",
-#'   censor_numerator = "x2", censor_denominator = c("x2", "x1"),
-#'   pool_censor = "none"
-#' )
+#' if (requireNamespace("arrow", quietly = TRUE)) {
+#'   cohort <- as.data.frame(arrow::read_parquet(system.file(
+#'     "extdata", "weights", "input_data_censored.parquet", package = "tters")))
+#'   weighted <- expand_trial_weighted_fitted_df(cohort, estimand = "PP",
+#'     switch_numerator = "x2", switch_denominator = c("x2", "x1"))
 #' }
 #' @export
 expand_trial_weighted_fitted_df <- function(cohort,
