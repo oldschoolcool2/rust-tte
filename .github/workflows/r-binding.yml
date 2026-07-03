@@ -234,17 +234,20 @@ jobs:
   r-cmd-check:
     name: R CMD check (--as-cran)
     runs-on: ubuntu-latest
-    # Runs `R CMD check --as-cran` on the DISTRIBUTABLE tarball (self-contained:
-    # vendored core + crates.io deps) -- the same artifact `standalone-install`
-    # builds. A plain `rcmdcheck(path=...)` cannot work: `R CMD build` tarballs only
-    # files under bindings/tters/, so the committed `path` dep on the core crate
-    # escapes the tarball and install fails. Checking the vendored tarball is also
-    # the faithful, CRAN-shaped gate (docs, examples, vignette, NAMESPACE), mirroring
-    # what r-universe runs. `--as-cran` forces Suggests, so they are all installed.
+    # Runs `R CMD check --as-cran`, replicating r-universe's build FAITHFULLY (the
+    # pipeline that certifies 0 errors / 0 warnings / 0 notes). A plain
+    # `rcmdcheck(path=...)` cannot work: `R CMD build` tarballs only files under
+    # bindings/tters/, so the committed `path` dep on the core crate escapes the
+    # tarball. So we run the `.prepare` hook to rewrite that path dep into a
+    # git+pinned-rev dep on this repo at HEAD, `R CMD build` a self-contained tarball
+    # WITH built vignettes (inst/doc), then `R CMD check` installs it as a RELEASE
+    # build that fetches the git core over the network -- exactly what r-universe
+    # checks. Debug builds instead surface `abort`/`exit`/`stderr` symbols from the
+    # Rust static lib and drop inst/doc, both of which are release/vignette artifacts,
+    # not package defects. `--as-cran` forces Suggests, so they are all installed.
     env:
-      CARGO_PROFILE_DEV_DEBUG: 0
+      # No debug info in the release build (disk budget); LTO stays on.
       CARGO_PROFILE_RELEASE_DEBUG: 0
-      CARGO_PROFILE_TEST_DEBUG: 0
       # Skip the remote CRAN-incoming probe (network flake / irrelevant off-CRAN).
       _R_CHECK_CRAN_INCOMING_REMOTE_: false
     steps:
@@ -277,20 +280,25 @@ jobs:
           Rscript -e 'remotes::install_github("Causal-LDA/TrialEmulation@v0.0.4.11",
           upgrade = "never")'
 
-      - name: Build self-contained tarball (vendored core + crates.io deps)
-        run: sh bindings/tters/tools/build-offline-tarball.sh "" "${{ runner.temp }}"
+      # Rewrite the committed path dep on the core crate into a git+pinned-rev dep on
+      # this repo at HEAD, so the tarball is self-contained (the same hook r-universe
+      # runs). The committed working tree is untouched -- only this throwaway checkout
+      # is edited. HEAD is pushed, so the pinned rev is fetchable at check time.
+      - name: Synthesize the git-dep form (r-universe .prepare hook)
+        working-directory: bindings/tters
+        run: sh .prepare
 
-      - name: R CMD check --as-cran (offline, on the distributable tarball)
-        working-directory: ${{ runner.temp }}
-        env:
-          # Build the vendored core offline; debug profile keeps it within the
-          # runner's disk + time budget (correctness gate, not a perf build).
-          CARGO_NET_OFFLINE: true
-          DEBUG: true
+      # Build WITH vignettes so inst/doc exists (no vignette-packaging warnings).
+      - name: R CMD build (with vignettes)
+        run: R CMD build bindings/tters
+
+      # Release install (fetches the git core over the network) -> matches the
+      # r-universe result. check_dir on RUNNER_TEMP keeps the vendored-Polars build
+      # off the workspace volume.
+      - name: R CMD check --as-cran
         run: |
           Rscript -e '
-            tb <- list.files(Sys.getenv("RUNNER_TEMP"),
-                             pattern = "^tters_.*\\.tar\\.gz$", full.names = TRUE)[1]
+            tb <- list.files(".", pattern = "^tters_.*\\.tar\\.gz$", full.names = TRUE)[1]
             stopifnot(!is.na(tb), nzchar(tb), file.exists(tb))
             rcmdcheck::rcmdcheck(
               tb,
