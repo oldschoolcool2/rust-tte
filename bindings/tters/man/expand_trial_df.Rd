@@ -46,10 +46,12 @@ Column dtypes are preserved exactly: R \code{integer} <-> Polars \code{Int32}, \
 above \code{2^53} (a pure-safe bit reinterpret, not a numeric cast).
 }
 \examples{
-\dontrun{
-cohort <- arrow::read_parquet("input.parquet")
-expanded <- expand_trial_df(cohort, estimand = "PP")
-}
+cohort <- data.frame(
+  id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+  treatment = c(1L, 1L, 0L, 0L, 1L), eligible = c(1L, 0L, 0L, 1L, 0L),
+  outcome = c(0L, 0L, 1L, 0L, 0L)
+)
+expand_trial_df(cohort, estimand = "ITT")
 }
 \seealso{
 \code{\link[=expand_trial]{expand_trial()}} for the Parquet-path equivalent.

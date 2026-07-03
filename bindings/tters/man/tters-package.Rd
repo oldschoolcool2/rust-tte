@@ -12,16 +12,17 @@ A thin R binding over the verified \code{tte-expand} Rust + Polars engine.
 Useful links:
 \itemize{
   \item \url{https://github.com/oldschoolcool2/rust-tte}
+  \item \url{https://oldschoolcool2.r-universe.dev/tters}
   \item Report bugs at \url{https://github.com/oldschoolcool2/rust-tte/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Michael Batech \email{oldschoolcool@gmail.com}
+\strong{Maintainer}: Michael Batech \email{oldschoolcool@gmail.com} (\href{https://orcid.org/0000-0001-9570-8180}{ORCID})
 
 Authors:
 \itemize{
-  \item Michael Batech \email{oldschoolcool@gmail.com}
+  \item Michael Batech \email{oldschoolcool@gmail.com} (\href{https://orcid.org/0000-0001-9570-8180}{ORCID})
 }
 
 }

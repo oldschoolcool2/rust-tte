@@ -62,14 +62,11 @@ the Oracle within the staged ~1e-6 tolerance. Wraps the extendr-generated
 Model presence follows the same rule as \code{\link[=fit_trial_weights_df]{fit_trial_weights_df()}}.
 }
 \examples{
-\dontrun{
-weighted <- expand_trial_weighted_fitted_df(
-  cohort, estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1"),
-  censor_col = "censored",
-  censor_numerator = "x2", censor_denominator = c("x2", "x1"),
-  pool_censor = "none"
-)
+if (requireNamespace("arrow", quietly = TRUE)) {
+  cohort <- as.data.frame(arrow::read_parquet(system.file(
+    "extdata", "weights", "input_data_censored.parquet", package = "tters")))
+  weighted <- expand_trial_weighted_fitted_df(cohort, estimand = "PP",
+    switch_numerator = "x2", switch_denominator = c("x2", "x1"))
 }
 }
 \seealso{

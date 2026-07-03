@@ -43,9 +43,16 @@ cohort \code{data.frame} and a pre-computed factor \code{data.frame}
 \code{bit64::integer64} \code{id} in either frame round-trips exactly.
 }
 \examples{
-\dontrun{
-weighted <- expand_trial_weighted_df(cohort, factors, estimand = "PP")
-}
+cohort <- data.frame(
+  id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+  treatment = c(1L, 1L, 0L, 0L, 1L), eligible = c(1L, 0L, 0L, 1L, 0L),
+  outcome = c(0L, 0L, 1L, 0L, 0L)
+)
+factors <- data.frame(
+  id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+  weight_factor = c(1, 0.9, 1.05, 1, 1.1)
+)
+expand_trial_weighted_df(cohort, factors, estimand = "PP")
 }
 \seealso{
 \code{\link[=expand_trial_weighted]{expand_trial_weighted()}} for the Parquet-path equivalent.
