@@ -1,4 +1,4 @@
-# Phase 9 — Exact Wide-Integer Frame I/O via `tters`: Completion Summary & Sign-off
+# Phase 9 — Exact Wide-Integer Frame I/O via `tters`: Completion Summary
 
 **Status: ✅ Implemented. The Phase-8 in-memory (`data.frame`-in / `data.frame`-out)
 path now round-trips 64-bit integers *exactly*. An R `bit64::integer64` column

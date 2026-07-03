@@ -33,7 +33,7 @@
 **Why it is a real contribution (not just "faster"):**
 1. The expansion is the documented scaling wall of the gold-standard tool — the maintainers built file-chunking to cope with it.
 2. The deliverable that gives it scientific weight is the **computational-reproducibility certificate**: a public proof of bit-exact equivalence to the CRAN reference across an adversarial fixture battery. That artifact speaks directly to the RWE-reproducibility conversation (FDA/EMA/ENCePP) — a verified reimplementation is more citable than a benchmark.
-3. Apache-2.0 + active maintainers + "manuscript in preparation" = a timely, welcome contribution rather than a fork nobody asked for.
+3. Apache-2.0 + active maintainers + "manuscript in preparation" = a timely, welcome contribution rather than an unsolicited fork.
 
 ---
 
@@ -339,11 +339,11 @@ This bundle — not the speedup alone — is what makes it citable and regulator
 
 ## 13. Contribution pathway
 
-1. **Engage maintainers early.** Open a GitHub issue on `Causal-LDA/TrialEmulation` proposing an optional Rust expansion backend (they note a methods manuscript is in prep — timing is good). Maintainer: Isaac Gravestock (Roche); methods lead: Li Su (MRC-BSU).
+1. **Contact the maintainers.** Open a GitHub issue on `Causal-LDA/TrialEmulation` proposing an optional Rust expansion backend (they note a methods manuscript is in prep). Maintainer: Isaac Gravestock (Roche); methods lead: Li Su (MRC-BSU).
 2. **Ship as a companion first**, not a fork: `tters` (extendr) calling `tte-expand`, with a `data_preparation`-compatible entry point. Lower friction than an upstream PR; can be upstreamed later.
 3. **License:** Apache-2.0 to match upstream; preserve their NOTICE. Confirm before vendoring any fixtures derived from their example data (example data is shipped with the package; deriving fixtures by running it is clean, but cite it).
 4. **Write it up:** a JOSS software paper for the crate + a short repro/methods note ("bit-exact reproduction + N× speed/memory") suitable for a pharmacoepi or comp-stats venue. Tie it to the RWE computational-reproducibility theme (ENCePP-relevant).
-5. **Positioning:** "verified high-performance backend for the gold-standard sequential TTE tool," explicitly *with* the maintainers — never "my faster replacement."
+5. **Framing:** a verified high-performance backend for the gold-standard sequential TTE tool, developed as a companion to the upstream package rather than a replacement for it.
 
 ---
 

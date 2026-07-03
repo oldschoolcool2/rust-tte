@@ -1,4 +1,4 @@
-# Phase 8 — In-Memory Frame I/O via `tters`: Completion Summary & Sign-off
+# Phase 8 — In-Memory Frame I/O via `tters`: Completion Summary
 
 **Status: ✅ Implemented. The `tters` R binding now goes *frame-in → frame-out* —
 an R user passes a cohort as an in-memory `data.frame` and gets the expanded /

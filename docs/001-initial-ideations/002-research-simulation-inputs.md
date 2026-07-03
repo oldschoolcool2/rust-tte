@@ -1,6 +1,6 @@
 # Simulation Inputs and Validation Criteria for a Rust + Polars Reimplementation of the Sequential Trial Emulation Data-Expansion Stage
 
-## TL;DR
+## Summary
 - The highest-value, directly reusable resources are three open-source R simulators/datasets tied to the in-scope sequential-trial-emulation (STE) design — Keogh et al. 2023 (`ruthkeogh/sequential_trials`), Limozin/Seaman/Su 2025 (`juliettelimozin/Multiple-trial-emulation-IPTW-MSM-CIs`), and the `TrialEmulation` package's own example data/vignettes — which between them supply explicit DGP coefficients, known-truth marginal risk differences, and published operating characteristics (bias, coverage, relative efficiency).
 - For your three-tier plan: Tier 1 (bit-exact expansion) is best anchored on the `TrialEmulation` `trial_example`/`data_censored` datasets and the arXiv 2402.12083 worked schema (id/period/eligible/treatment/outcome → expanded trial frames); Tier 2 (coefficient/SE reproduction) on the Limozin and Keogh pipelines; Tier 3 (known-truth recovery) on the Keogh additive-hazard DGP (true treatment effect α_A = −0.04) and the Limozin DGP (true MRD computed by an n = 1,000,000 "very large RCT" Kaplan–Meier).
 - Keep clone-censor-weight (CCW) grace-period work (Maringe 2020, Hernán 2016/2017, Gaber 2024) strictly in a sidebar — it is a distinct design with a different expansion (cloning into both arms, not sequential re-enrollment) and should seed a future separate crate, not v1 fixtures.

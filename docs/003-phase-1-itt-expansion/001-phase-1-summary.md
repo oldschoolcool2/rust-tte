@@ -1,4 +1,4 @@
-# Phase 1 — ITT Expansion: Completion Summary & Sign-off
+# Phase 1 — ITT Expansion: Completion Summary
 
 **Status: ✅ ITT engine implemented and verified bit-exact against the Oracle.**
 Date: 2026-06-29.
@@ -103,7 +103,7 @@ property: `assigned_treatment` is the input `treatment` at each trial's own
   R double literal `0`) but `int32` elsewhere (`period = 0:9` via `:`).
 - **Row order** matches the Oracle's `order(id, trial_period, followup_time)`
   via an explicit, total, ascending sort.
-- **Two Oracle-side issues found while generating fixtures (need sign-off; both
+- **Two Oracle-side issues found while generating fixtures (both
   in protected files, neither affects ITT output):**
   1. `validate_input()` in `oracle/10_simulate.R` calls `data.table` `by=` syntax
      on a plain `data.frame` (`unused argument (by = id)`), so the scenario build
@@ -122,7 +122,7 @@ property: `assigned_treatment` is the input `treatment` at each trial's own
   signature (fixed by the frozen `tests/itt.rs` call), so they are stored as
   defaulted fields (`"eligible"`/`"outcome"`) with builder overrides.
 
-## Deferred to Phase 2+ / open questions (for human sign-off)
+## Deferred to Phase 2+ / open questions
 
 1. **Edge cases `E04`/`E06`/`E08`/`E09` — signed off and landed (ITT).** Epi
    review + Oracle confirmation fixed the conventions in `oracle/30_edge_cases.R`

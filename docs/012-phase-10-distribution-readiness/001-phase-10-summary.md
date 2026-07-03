@@ -1,4 +1,4 @@
-# Phase 10 — Distribution & Self-Contained Installability for `tters`: Completion Summary & Sign-off
+# Phase 10 — Distribution & Self-Contained Installability for `tters`: Completion Summary
 
 **Status: ✅ Implemented. The `tters` R package can now be built and installed —
 and run its full testthat battery — WITHOUT the surrounding monorepo. A
@@ -26,7 +26,7 @@ resolves ONLY in the monorepo; its self-test reads the repo-root `fixtures/`.
 Neither survives `R CMD build` (which tarballs only files under `bindings/tters/`)
 or a checkout of just the package. Phase 10 closes both gaps so `tters` can ship via
 r-universe / a source tarball — the prerequisite for the upstream `te_datastore`
-companion-backend outreach (Track C).
+companion-backend work (Track C).
 
 ## What was implemented
 
@@ -127,16 +127,16 @@ maintainers are engaged.
   crates) busts CRAN's 5 MB limit (the same reason the `polars` R package lives on
   r-universe, not CRAN).
 
-## VERIFY-FIRST findings (empirical, established + signed off BEFORE building)
+## VERIFY-FIRST findings (empirical, established before building)
 
 | Question | Finding |
 |---|---|
 | **The break (reproduced)** | `R CMD build bindings/tters` → 59 KB tarball with the core crate ABSENT; installing it fails at cargo resolution: `failed to load manifest for dependency 'tte-expand' … No such file or directory`. The `../../../../` path escapes the tarball. |
 | **r-universe build model** (primary sources, adversarially verified) | Full `git clone` of the monorepo → a `$PKGDIR/.prepare` hook runs while siblings are on disk → `R CMD build` tarballs the **subdir only** (`crates/` EXCLUDED) → all binary jobs compile that tarball ⇒ **the path dep is NOT reachable for any distributable build.** Runners have **build-time network** (the cargo shim execs real cargo, no `--offline`) ⇒ a **git dep is fetched at build time; no committed vendor tree needed**. r-universe sets `MY_UNIVERSE` (not `NOT_CRAN`). |
-| **Strategy (signed off)** | Path → **git+pinned-rev**, **path kept as the committed dev default**; the git form + offline vendor tree are synthesized at dist time. Single-source (no committed core copy); bit-exact-safe (git checkout resolves workspace inheritance natively → identical Polars features); lock changes by exactly one line at dist time. The in-package copy was rejected (fragile manifest de-inheritance = determinism hazard); crates.io publish deferred. CONFIRMED cargo gotcha: a `.cargo/config.toml` `paths` override only matches crates.io-published crates, NOT a git-only dep — so the dev default stays the literal path dep, not an override. |
+| **Strategy** | Path → **git+pinned-rev**, **path kept as the committed dev default**; the git form + offline vendor tree are synthesized at dist time. Single-source (no committed core copy); bit-exact-safe (git checkout resolves workspace inheritance natively → identical Polars features); lock changes by exactly one line at dist time. The in-package copy was rejected (fragile manifest de-inheritance = determinism hazard); crates.io publish deferred. CONFIRMED cargo gotcha: a `.cargo/config.toml` `paths` override only matches crates.io-published crates, NOT a git-only dep — so the dev default stays the literal path dep, not an override. |
 | **`inst/extdata` subset** | ~170 KB / 35 files: 9 edge cases (input+itt+pp) + `common` scenario (input+itt+pp) + the `data_censored` weight set. Covers ITT/PP structural, dtype-exactness, apply (1e-12), fitted (1e-6), both error paths; rides the existing `system.file("extdata")` resolver with NO code change. |
-| **Footprint (signed off)** | `cargo vendor` tree = 638 MB raw (369 crates, Windows-target dominated) → **gitignored, generated on release/CI, never committed**. The committed `inst/extdata` (~170 KB) is the only in-tree data. |
-| **Repo visibility** | The repo is going **public** (owner-confirmed; gitleaks-guarded since Phase 0) — the prerequisite for r-universe and git-dep source installs. |
+| **Footprint** | `cargo vendor` tree = 638 MB raw (369 crates, Windows-target dominated) → **gitignored, generated on release/CI, never committed**. The committed `inst/extdata` (~170 KB) is the only in-tree data. |
+| **Repo visibility** | The repo is going **public** (gitleaks-guarded since Phase 0) — the prerequisite for r-universe and git-dep source installs. |
 
 ## Verification performed (2026-06-30, Rust 1.95.0, R 4.3.3)
 

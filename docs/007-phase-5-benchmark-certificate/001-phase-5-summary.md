@@ -1,4 +1,4 @@
-# Phase 5 — Benchmark + Reproducibility Certificate: Completion Summary & Sign-off
+# Phase 5 — Benchmark + Reproducibility Certificate: Completion Summary
 
 **Status: ✅ The reproducibility certificate (`make verify`) asserts bit-exact
 equivalence to the R `TrialEmulation` Oracle across the full fixture battery —
