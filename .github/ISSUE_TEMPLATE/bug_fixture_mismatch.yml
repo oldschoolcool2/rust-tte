@@ -1,0 +1,53 @@
+name: Bug report / fixture mismatch
+description: A correctness bug, a crash, or output that differs from the TrialEmulation Oracle.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This engine reproduces the R `TrialEmulation`
+        expansion **bit-for-bit**, so a real mismatch is a genuine bug. Please
+        include the row-level diff — it is what lets us adjudicate whether the
+        spec or a fixture is at fault.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: tters / tte-expand version (or git SHA) and how you installed it.
+      placeholder: "tters 0.1.1 from r-universe"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Affected fixture and columns
+      description: >-
+        If output differs from the Oracle, name the fixture and the offending
+        column(s), and paste the row-level diff (a few example rows).
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Minimal R or Rust code (or a small cohort snippet) that triggers it.
+      render: r
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, R version, and/or Rust toolchain plus Polars version if known.
+      placeholder: "Ubuntu 24.04, R 4.3.3, rustc 1.95.0, Polars 0.54"
+    validations:
+      required: false

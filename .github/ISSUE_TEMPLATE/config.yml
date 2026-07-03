@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Upstream TrialEmulation (the Oracle)
+    url: https://github.com/Causal-LDA/TrialEmulation/issues
+    about: For questions about the reference R package itself, not this backend.
+  - name: Documentation and design rationale
+    url: https://github.com/oldschoolcool2/rust-tte/tree/main/docs
+    about: Design docs, the reproducibility certificate, and the roadmap.
