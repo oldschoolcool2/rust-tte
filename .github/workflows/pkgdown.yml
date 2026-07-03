@@ -1,0 +1,77 @@
+name: pkgdown (tters)
+
+# Builds the pkgdown documentation site for the `tters` R package and deploys it
+# to the gh-pages branch. On pull requests the site is BUILT but NOT deployed (a
+# build-only smoke test), so a broken site is caught before it can ship. Building
+# needs the Rust toolchain because the extendr package compiles the tte-expand
+# core during R CMD INSTALL.
+#
+# Pinning note: `uses:` are TAG-pinned (@vN) to match the repo's deliberate
+# "tag pins + Dependabot" policy (see r-binding.yml), NOT the SHA pins in
+# .claude/rules/security.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/tters/**"
+      - ".github/workflows/pkgdown.yml"
+  pull_request:
+    paths:
+      - "bindings/tters/**"
+      - ".github/workflows/pkgdown.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: pkgdown-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: read to build; write only to push the gh-pages branch.
+permissions:
+  contents: write
+
+jobs:
+  pkgdown:
+    name: build + deploy site
+    runs-on: ubuntu-latest
+    env:
+      # A debug-info Polars build can exhaust the runner disk.
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # rust-toolchain.toml pins 1.95.0; @stable just provides rustup.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        run: Rscript -e 'install.packages(c("pkgdown", "rmarkdown", "knitr", "bit64", "arrow"))'
+
+      - name: R CMD INSTALL tters
+        run: R CMD INSTALL bindings/tters
+
+      - name: Build pkgdown site
+        run: Rscript -e 'pkgdown::build_site("bindings/tters", install = FALSE, new_process = FALSE)'
+
+      # gh-pages is served raw (no Jekyll); .nojekyll keeps files starting with
+      # an underscore (pkgdown assets) from being dropped.
+      - name: Add .nojekyll
+        run: touch bindings/tters/docs/.nojekyll
+
+      - name: Deploy to gh-pages
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: bindings/tters/docs
+          clean: true

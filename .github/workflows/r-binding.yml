@@ -230,3 +230,53 @@ jobs:
               reporter = "summary"
             )
           '
+
+  r-cmd-check:
+    name: R CMD check (--as-cran)
+    runs-on: ubuntu-latest
+    # Full `R CMD check --as-cran` on the built tarball (docs, examples, vignette,
+    # NAMESPACE, DESCRIPTION). The other jobs prove INSTALL + the fixture battery;
+    # this is the CRAN-shaped quality gate, mirroring what r-universe runs. Because
+    # `--as-cran` forces every Suggests to be present, they are all installed below.
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+      # Skip the remote CRAN-incoming probe (network flake / irrelevant off-CRAN).
+      _R_CHECK_CRAN_INCOMING_REMOTE_: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        run: >
+          Rscript -e 'install.packages(c("rcmdcheck", "testthat", "arrow",
+          "data.table", "knitr", "rmarkdown", "remotes"))'
+
+      # `--as-cran` forces Suggests to be installed; pin the exact upstream the
+      # binding targets. PAT passed via env: (never interpolated) per the guard.
+      - name: Install TrialEmulation (pinned v0.0.4.11)
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          Rscript -e 'remotes::install_github("Causal-LDA/TrialEmulation@v0.0.4.11",
+          upgrade = "never")'
+
+      - name: R CMD check
+        run: |
+          Rscript -e '
+            rcmdcheck::rcmdcheck(
+              path = "bindings/tters",
+              args = c("--no-manual", "--as-cran"),
+              error_on = "warning",
+              check_dir = file.path(Sys.getenv("RUNNER_TEMP"), "check")
+            )
+          '

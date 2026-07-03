@@ -17,3 +17,5 @@
 ^tools/build-offline-tarball\.sh$
 ^tools/rewrite-core-dep\.sh$
 ^tools/vendor-extdata\.R$
+^_pkgdown\.yml$
+^pkgdown$

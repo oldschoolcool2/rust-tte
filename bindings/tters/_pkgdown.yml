@@ -1,0 +1,41 @@
+url: https://oldschoolcool2.github.io/rust-tte
+
+template:
+  bootstrap: 5
+
+reference:
+  - title: TrialEmulation backend
+    desc: >
+      Drop-in te_datastore backend — expand in Rust, estimate in R,
+      bit-identically to the default path.
+    contents:
+      - expand_trials_tters
+      - save_to_tters
+  - title: Trial expansion (Parquet path)
+    desc: Read a person-time Parquet file, write the expanded trial frame.
+    contents:
+      - expand_trial
+      - expand_trial_weighted
+      - expand_trial_weighted_fitted
+      - fit_trial_weights
+  - title: Trial expansion (in-memory data.frame)
+    desc: Frame-in / frame-out, with no intermediate Parquet.
+    contents:
+      - expand_trial_df
+      - expand_trial_weighted_df
+      - expand_trial_weighted_fitted_df
+      - fit_trial_weights_df
+  - title: Low-level engine bindings
+    desc: Thin extendr shims wrapped by the ergonomic functions above.
+    contents:
+      - expand_parquet
+      - expand_weighted_parquet
+      - expand_weighted_fitted_parquet
+      - fit_weights_parquet
+      - expand_df
+      - expand_weighted_df
+      - expand_weighted_fitted_df
+      - fit_weights_df
+  - title: Package
+    contents:
+      - tters-package
