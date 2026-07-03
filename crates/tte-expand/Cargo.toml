@@ -14,6 +14,11 @@ categories = ["science", "data-structures"]
 # the shared `benches/support.rs` generator is not mistaken for its own bench.
 autobenches = false
 
+# docs.rs builds default features only; the in-Rust IPW solver (`weights-fit`) is
+# behind a feature flag, so document every feature to surface the full public API.
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 polars = { workspace = true }
 thiserror = { workspace = true }
