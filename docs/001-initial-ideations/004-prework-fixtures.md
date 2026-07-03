@@ -10,9 +10,9 @@ Three production lines feed three validation tiers:
 
 ---
 
-## ⚠️ VERIFY FIRST (before trusting any output below)
+## VERIFY FIRST (before trusting any output below)
 
-I inferred these from package docs; confirm against *your installed version*, because they shift between releases:
+These were inferred from the package docs; confirm against the installed version, because they shift between releases:
 
 ```r
 library(TrialEmulation)
@@ -214,7 +214,7 @@ build_scenario <- function(name) {
 
 ## `oracle/30_edge_cases.R` — the immortal-time landmine catalog
 
-Tiny, deterministic, hand-typed cohorts that probe the exact places sequential expansion goes wrong. **These need your sign-off** — the comments state what each *should* exercise, but the Oracle output is canonical: if the Oracle disagrees with my expectation comment, that's a finding to investigate (possibly my eligibility model is wrong, possibly a real subtlety), not a bug to paper over.
+Tiny, deterministic, hand-typed cohorts that probe the exact places sequential expansion goes wrong. **These require epidemiological review** — the comments state what each *should* exercise, but the Oracle output is canonical: if the Oracle disagrees with an expectation comment, that's a finding to investigate (possibly the eligibility model here is wrong, possibly a real subtlety), not a bug to paper over.
 
 ```r
 # oracle/30_edge_cases.R
@@ -262,7 +262,7 @@ EDGE_CASES <- list(
   )
 
   # ------------------------------------------------------------------
-  # TODO (Mike sign-off + literature alignment): specify these precisely.
+  # Pending epidemiological review and literature alignment: specify these precisely.
   # Each is a known place sequential expansion / time-zero alignment fails.
   #
   # E04_reentry        : eligible -> ineligible -> eligible again.
@@ -283,19 +283,19 @@ EDGE_CASES <- list(
 )
 ```
 
-**Alignment matrix to complete with Mike (drop into the doc/PR as the rationale):**
+**Alignment matrix (to be completed during epidemiological review; drop into the doc/PR as the rationale):**
 
 | ID | Probes | Bias / mechanism | Literature anchor | Status |
 |----|--------|------------------|-------------------|--------|
 | E01 | floor case | — | — | ready |
 | E02 | multi-trial seeding | recurrent eligibility | vignette ID=4 / Danaei 2013 | ready |
 | E03 | baseline-visit event | off-by-one at time zero | Fu/Hernán 2026 | ready |
-| E04 | eligibility re-entry | immortal time + re-entry | Fu/Hernán 2026 | **needs sign-off** |
+| E04 | eligibility re-entry | immortal time + re-entry | Fu/Hernán 2026 | under review |
 | E05 | control-only fan-out | — | — | ready |
-| E06 | first-deviation censoring | PP artificial censoring | Danaei 2013 | **needs sign-off** |
+| E06 | first-deviation censoring | PP artificial censoring | Danaei 2013 | under review |
 | E07 | edge single-row trial | last-period eligibility | — | ready |
-| E08 | tie handling | event/censor tie-break | — | **needs sign-off** |
-| E09 | max fan-out | row-count invariant | — | **needs sign-off** |
+| E08 | tie handling | event/censor tie-break | — | under review |
+| E09 | max fan-out | row-count invariant | — | under review |
 
 ---
 
@@ -421,7 +421,7 @@ rds_to_fixture <- function(rds_path, name, subdir = "harvested") {
 `%||%` <- function(a, b) if (is.null(a)) b else a
 ```
 
-> Caveat from doc #1: their suite is a *regression* suite on *nice* example data — it locks known behaviour, it does not hunt landmines. Harvest it for free coverage and authority, then rely on §20 (scenarios) and §30 (edge cases) for the dangerous trajectories it never tests.
+> Caveat from doc #1: the upstream suite is a *regression* suite over standard example data — it locks in known behaviour rather than probing edge cases. Reuse it for authoritative baseline coverage, then rely on §20 (scenarios) and §30 (edge cases) for the difficult trajectories it doesn't exercise.
 
 ---
 
@@ -470,7 +470,7 @@ Tier 1 is the contract the agent satisfies. Tier 2 catches gluing errors the bit
 
 ---
 
-## What needs YOUR sign-off (not the agent's, not mine)
+## Decisions requiring domain (epidemiological) sign-off
 
 1. **Freeze `STRUCTURAL_COLS`** from `names(prep$data)` on your installed version — including whether PP emits a censoring/expand flag to add.
 2. **Finish the edge catalog** (E04, E06, E08, E09) — these are the immortal-time landmines, and which trajectories are *dangerous* is epidemiology, not code. The alignment matrix is where you record the rationale (and it becomes PR/paper material).

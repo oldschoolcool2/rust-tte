@@ -24,9 +24,9 @@ docs/
 
 | Folder | Contents |
 |---|---|
-| [`001-initial-ideations/`](001-initial-ideations/) | The originating research and plan: project memories, the simulation-inputs/validation literature review, the phased project plan, and the executable Phase-0 fixture-generation pre-work. |
-| [`002-phase-0-scaffold/`](002-phase-0-scaffold/) | Phase-0 completion summary, verification results, decisions/deviations, and the remaining human sign-off items. |
-| [`003-phase-1-itt-expansion/`](003-phase-1-itt-expansion/) | Phase-1 ITT engine: the self-join algorithm, the input-derived dtype rules, fixtures generated, bit-exact verification, and the deferred PP/edge-case sign-off items. |
+| [`001-initial-ideations/`](001-initial-ideations/) | The originating research and plan: the project orientation and key decisions, the simulation-inputs/validation literature review, the phased project plan, and the executable Phase-0 fixture-generation pre-work. |
+| [`002-phase-0-scaffold/`](002-phase-0-scaffold/) | Phase-0 completion summary, verification results, decisions/deviations, and the remaining open design considerations. |
+| [`003-phase-1-itt-expansion/`](003-phase-1-itt-expansion/) | Phase-1 ITT engine: the self-join algorithm, the input-derived dtype rules, fixtures generated, bit-exact verification, and the deferred PP/edge-case items. |
 | [`004-phase-2-pp-censoring/`](004-phase-2-pp-censoring/) | Phase-2 per-protocol engine: first-deviation artificial censoring (`cum_max`/window), the `PP = ITT ∩ S4-survivors` fixture recipe, the no-flag-column schema decision, bit-exact verification, and the ITT-unchanged proof. |
 | [`005-phase-3-weight-application/`](005-phase-3-weight-application/) | Phase-3 weight application: the join + cumulative-product (`cum_prod`/window) design, the per-`(id, period)` factor table recovered from the Oracle weights, the `STRUCTURAL_COLS_WEIGHTED` schema, the 1e-12 tolerance, verification within tolerance, and the ITT/PP-unchanged proof. |
 | [`006-phase-4-extendr-binding/`](006-phase-4-extendr-binding/) | Phase-4 extendr binding (`tters`): the FFI shim exposing estimand selection + weighted expansion to R, the regenerated extendr wrappers / NAMESPACE / man, the toolchain & version reconciliation (extendr 0.9 / rextendr 0.5 / R 4.3.3, MSRV bumped to 1.95), the `R CMD INSTALL` + testthat round-trip reproducing the full battery, and the root-workspace-unchanged proof. |
@@ -51,7 +51,7 @@ docs/
 
 | File | What it is |
 |---|---|
-| [`001-phase-0-summary.md`](002-phase-0-scaffold/001-phase-0-summary.md) | Phase-0 sign-off: what each agent built, the verification (compiles / clippy / fmt / test green), decisions (Polars 0.54.4, MSRV 1.88, `dtype-categorical`), and remaining human sign-off. |
+| [`001-phase-0-summary.md`](002-phase-0-scaffold/001-phase-0-summary.md) | Phase-0 sign-off: what each agent built, the verification (compiles / clippy / fmt / test green), decisions (Polars 0.54.4, MSRV 1.88, `dtype-categorical`), and the remaining open design considerations. |
 
 ### `003-phase-1-itt-expansion/`
 

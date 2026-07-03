@@ -10,7 +10,7 @@
 > with graceful fallback. **No Rust changed** — this is R integration glue over
 > the Phase-8/9 in-memory binding.
 
-This is **Track C** of the remaining work (the maintainer-green-lit companion
+This is **Track C** of the remaining work (the maintainer-approved companion
 backend, `Causal-LDA/TrialEmulation#243`). It embodies the load-bearing split the
 project is built on: **Rust owns deterministic data transformation; R owns
 statistical estimation.**
@@ -70,12 +70,12 @@ does not opt in.
 ### D5 — docs + maintainer-facing artifact
 A worked example in `bindings/tters/README.md` (`library(TrialEmulation); …;
 expand_trials_tters(); fit_msm()`), this summary, and the one-line "Extending"
-pointer to offer the maintainers (below) — **no PR is opened against the upstream
+pointer for the maintainers (below) — **no PR is opened against the upstream
 repo**.
 
 ---
 
-## VERIFY-FIRST findings (resolved empirically before building, signed off)
+## VERIFY-FIRST findings (resolved empirically before building)
 
 Everything below was proven on `TrialEmulation`'s bundled `data_censored` cohort
 (725 person-periods, 89 ids) against `TrialEmulation` **v0.0.4.11** / R 4.3.3.
@@ -86,7 +86,7 @@ Everything below was proven on `TrialEmulation`'s bundled `data_censored` cohort
 | **(b)** | **The DATA CONTRACT** | keeplist + dtypes nailed (`int,int,int,dbl,dbl,dbl,…passthrough…`); `treatment_var = "assigned_treatment"` present for ITT/PP. The mapping above reproduces the stored frame **structurally bit-exact** with `weight` to **6.7e-16 / 2.2e-16** (machine ε, far inside the enforced **1e-12** weight-application tolerance) across ITT-unweighted, ITT-weighted (IPCW), and PP-weighted (switch+censor). The make-or-break was the **row-order re-sort** (`id, period_new, trial_period`) — tters' native order differs from the stored `index` order. |
 | **(c)** | **DOWNSTREAM PARITY** | Inheriting the base `sample_expanded_data` (→ our `read_expanded_data`) gives RNG-identical sampling. With seeded `load_expanded_data(seed = 1234, p_control = 0.5)`: sampled `outcome_data` **identical**, no-sample load **value-identical**, `fit_msm` coefficients agree to **1.4e-11** (observed; the suite enforces rel **1e-6** — glm float noise from the ~1e-16 weight perturbation). |
 | **(d)** | **DEPS / FALLBACK** | `Suggests: TrialEmulation, data.table`; backend defined conditionally in `.onLoad`; `data.table` use enabled via the `.datatable.aware` namespace flag (documented opt-in for `Suggests`-level data.table). No new Rust dep. |
-| **maintainers** | **#243** | gravesti green-lit both **#1** (companion) and **#2** (`Suggests` fallback); sole constraint *"don't add to CRAN time"*. The detailed questions (interface / pin / contract) are still **unanswered**, so the documented assumptions stand: target the **`trial_sequence()` S4 interface**, pin **v0.0.4.11**, companion-expansion approach. Re-verify the thread before any follow-up. |
+| **maintainers** | **#243** | The upstream maintainer (gravesti) approved both **#1** (companion) and **#2** (`Suggests` fallback); sole constraint *"don't add to CRAN time"*. The detailed questions (interface / pin / contract) are still **unanswered**, so the documented assumptions stand: target the **`trial_sequence()` S4 interface**, pin **v0.0.4.11**, companion-expansion approach. |
 
 **Chunk-invariance** was confirmed separately: `TrialEmulation`'s stored frame is
 byte-identical at `chunk_size = 500` vs `10` (globally `(id, period_new,
@@ -95,7 +95,7 @@ of the user's `chunk_size`.
 
 ---
 
-## Verification gauntlet
+## Verification
 
 | Gate | Result |
 |---|---|
@@ -136,7 +136,7 @@ of the user's `chunk_size`.
 - **R package version kept at `0.1.0`** (consistent with Phases 8–10, which added
   features without a bump; avoids interaction with the Phase-10 dist tooling).
 
-### The one-line "Extending" pointer to offer the maintainers
+### The one-line "Extending" pointer for the maintainers
 
 > A community companion package, [`tters`](https://github.com/oldschoolcool2/rust-tte),
 > provides a Rust + Polars `te_datastore` backend (`save_to_tters()`) and a drop-in
@@ -144,7 +144,7 @@ of the user's `chunk_size`.
 > stays in `TrialEmulation`; it is `Suggests`-level and bit-identical to the
 > default path.
 
-(Offer only if/when they ask — do not open a PR against `Causal-LDA/TrialEmulation`.)
+(Provided for reference; no PR is opened against `Causal-LDA/TrialEmulation`.)
 
 ---
 
@@ -157,7 +157,7 @@ of the user's `chunk_size`.
   `vignette("…")` can be added later (kept out now to avoid `VignetteBuilder`
   build-surface churn and a `Suggests`-conditional knit).
 - **`crates.io` publish of `tte-expand`.** Still deferred (gated on engaging the
-  TrialEmulation team), per the publishing memory. The companion installs via the
+  TrialEmulation team), per the project's publishing roadmap. The companion installs via the
   Phase-10 r-universe / source path.
 - **New-interface tracking.** If the maintainers answer #243 with a different
   preferred surface or a dev branch, re-pin and adapt.

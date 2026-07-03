@@ -1,4 +1,4 @@
-# Phase 6 — Weights in Rust (v2): Completion Summary & Sign-off
+# Phase 6 — Weights in Rust (v2): Completion Summary
 
 **Status: ✅ Implemented. The engine now *fits* the inverse-probability weights in
 Rust by binding a mature logistic solver, reproducing the R `TrialEmulation`

@@ -31,7 +31,7 @@ treating the R package as an **immutable Oracle** for correctness.
 
 ### What this is **not**
 
-- ❌ A rewrite of the `TrialEmulation` package, or a fork nobody asked for.
+- ❌ A rewrite of the `TrialEmulation` package, or a fork.
 - ❌ A new statistical method, or a reimplementation of `glm` / `parglm` / `sandwich`.
 - ❌ The clone-censor-weight (CCW) grace-period design — that is a **separate**
   design and would be a separate crate. v1 is **sequential trial emulation only**
@@ -44,8 +44,8 @@ reproducibility certificate**: a public, reproducible proof of bit-exact
 equivalence to the CRAN reference across an adversarial fixture battery. That
 artifact speaks directly to the real-world-evidence (RWE) reproducibility
 conversation (FDA / EMA / ENCePP) — a *verified* reimplementation is more
-citable than a benchmark. Upstream is Apache-2.0 with active maintainers, so this
-is framed as a *companion*, built **with** the maintainers — never a replacement.
+citable than a benchmark. Upstream is Apache-2.0 with active maintainers; this
+project is a *companion* to their package, not a replacement.
 
 ## The approach: fixture-driven strangler pattern
 
@@ -134,7 +134,7 @@ package; see [`oracle/README.md`](oracle/README.md).
 This project is built **with respect to**, and validated **against**,
 `TrialEmulation` (Causal-LDA; Apache-2.0). The package is used unmodified as the
 correctness Oracle. See [`NOTICE`](NOTICE) for full attribution. The intended
-contribution pathway is to engage the maintainers early and ship `tters` as a
+contribution pathway is to offer `tters` to the maintainers as a
 companion with a `data_preparation`-compatible entry point.
 
 ## License

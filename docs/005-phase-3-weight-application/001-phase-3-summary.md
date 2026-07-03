@@ -1,4 +1,4 @@
-# Phase 3 — Weight Application: Completion Summary & Sign-off
+# Phase 3 — Weight Application: Completion Summary
 
 **Status: ✅ Weight application implemented and verified against the Oracle within
 tolerance; ITT and PP paths byte-identical.**
@@ -135,7 +135,7 @@ Phases 1–2.
 ## Decisions / deviations recorded
 
 - **Cumulative product, not a per-row join.** Read off the Oracle and
-  **adversarially verified** (4 independent reasoners, none refuted): for
+  **adversarially verified** (4 independent analyses, none refuted): for
   `followup_time ≥ 2`, `weight ≠ single-period factor` (differences up to 12.7), so
   the running product is required. This is exactly why ADR-2 grants a ~1e-12 float
   tolerance instead of bit-exactness — the engine redoes the product and may

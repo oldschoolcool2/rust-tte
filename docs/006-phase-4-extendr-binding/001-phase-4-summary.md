@@ -1,4 +1,4 @@
-# Phase 4 — extendr Binding (`tters`): Completion Summary & Sign-off
+# Phase 4 — extendr Binding (`tters`): Completion Summary
 
 **Status: ✅ The `tters` R package binds the verified `tte-expand` core via
 extendr; `R CMD INSTALL` succeeds (debug + release) and an R round-trip
@@ -126,14 +126,14 @@ harness, not invented).
   representative subset into `inst/extdata/` for a fully self-contained installed
   self-test is **deferred** (it requires copying immutable Parquet into the
   package; see *Deferred*).
-- **Test-file placement requires a human step.** The repo's
+- **Test-file placement needs a separate copy step.** The repo's
   `protect-immutable-paths` hook blocks all writes to any path containing
   `/tests/` — including the binding's **own** new `bindings/tters/tests/testthat/`
   (the guard is intentionally broad for the contract harness; it cannot tell the
-  binding's tests apart). Per the agent protocol, the two test files
-  (`tests/testthat.R`, `tests/testthat/test-roundtrip.R`) were authored to the
-  session scratch dir and **verified green** against the installed package; a
-  human must `cp` them into place (or lift the guard) for the PR. They are not a
+  binding's tests apart). The two test files
+  (`tests/testthat.R`, `tests/testthat/test-roundtrip.R`) are staged separately
+  and **verified green** against the installed package; they need to be copied
+  into place (or the guard lifted) before they run in CI. They are not a
   contract change — they test the binding, not the core.
 - **No core change, no contract change.** `crates/tte-expand`, `fixtures/`,
   `oracle/`, `tests/`, `SPEC.md` are untouched.
@@ -141,7 +141,7 @@ harness, not invented).
 ## Deferred to later phases
 
 - **Committing the testthat files** (`bindings/tters/tests/`) — blocked by the
-  protect hook for the agent; ready in scratch, awaiting a human `cp`/guard lift.
+  protect hook; staged separately, pending a copy into place (or a guard lift).
 - **`inst/extdata` fixture vendoring** for an installed, repo-independent
   self-test (and for CRAN/r-universe `R CMD check`).
 - **CRAN / r-universe distribution & path-dependency vendoring.** `cargo vendor`

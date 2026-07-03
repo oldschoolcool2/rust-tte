@@ -1,4 +1,4 @@
-# Phase 7 — Expose Weight Fitting via `tters`: Completion Summary & Sign-off
+# Phase 7 — Expose Weight Fitting via `tters`: Completion Summary
 
 **Status: ✅ Implemented. The `tters` R binding now *fits* the inverse-probability
 weights in Rust end-to-end — an R user goes straight from a raw cohort to a

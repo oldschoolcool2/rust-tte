@@ -1,4 +1,4 @@
-# Phase 2 — Per-Protocol Artificial Censoring: Completion Summary & Sign-off
+# Phase 2 — Per-Protocol Artificial Censoring: Completion Summary
 
 **Status: ✅ PP engine implemented and verified bit-exact against the Oracle;
 ITT path unchanged.**

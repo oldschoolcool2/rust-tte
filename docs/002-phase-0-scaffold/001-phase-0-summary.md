@@ -1,4 +1,4 @@
-# Phase 0 — Scaffold: Completion Summary & Sign-off
+# Phase 0 — Scaffold: Completion Summary
 
 **Status: ✅ scaffold complete and verified to compile.** Date: 2026-06-29.
 
@@ -8,8 +8,8 @@ is *"`cargo test` runs and fails cleanly with a clear 'not implemented' message;
 fixtures exist with a manifest."* The repository, toolchain, and contract
 boundaries are in place and the workspace builds, lints, and tests green. The
 one remaining piece — **generating the actual Parquet fixtures from the R
-Oracle** — requires the user's pinned R + `TrialEmulation` environment and is
-listed under *Remaining human sign-off* below.
+Oracle** — requires a pinned R + `TrialEmulation` environment and is
+listed under *Remaining human steps* below.
 
 ## What was built
 
@@ -88,10 +88,10 @@ Against the real, networked toolchain (Rust 1.95.0):
   overriding the `test` matrix and `msrv` jobs; both now force the intended
   toolchain via `RUSTUP_TOOLCHAIN`.
 
-## Remaining human sign-off (gates Phase 1)
+## Remaining human steps (gates Phase 1)
 
-These need the user's epidemiology judgement and/or pinned R environment — they
-are intentionally **not** done by an agent:
+These need epidemiology judgement and/or a pinned R environment, so they are
+intentionally handled as manual steps rather than automated:
 
 1. **Generate the fixtures.** Run `oracle/run_all.R` against a pinned
    `TrialEmulation` + `renv` to produce `fixtures/**/*.parquet` + `MANIFEST.json`.
