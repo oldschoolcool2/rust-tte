@@ -98,11 +98,9 @@ to fit and expand in a single call.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
 # Per-protocol switching weights (numerator ~ x2, denominator ~ x2 + x1):
-fit_trial_weights(
-  "cohort.parquet", "factors.parquet", estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1")
-)
-} # }
+input <- system.file("extdata", "weights", "input_data_censored.parquet",
+                     package = "tters")
+fit_trial_weights(input, tempfile(fileext = ".parquet"), estimand = "PP",
+                  switch_numerator = "x2", switch_denominator = c("x2", "x1"))
 ```

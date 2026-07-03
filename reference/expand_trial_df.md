@@ -68,8 +68,16 @@ for the Parquet-path equivalent.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-cohort <- arrow::read_parquet("input.parquet")
-expanded <- expand_trial_df(cohort, estimand = "PP")
-} # }
+cohort <- data.frame(
+  id = c(1L, 1L, 1L, 2L, 2L), period = c(0L, 1L, 2L, 0L, 1L),
+  treatment = c(1L, 1L, 0L, 0L, 1L), eligible = c(1L, 0L, 0L, 1L, 0L),
+  outcome = c(0L, 0L, 1L, 0L, 0L)
+)
+expand_trial_df(cohort, estimand = "ITT")
+#>   id trial_period followup_time assigned_treatment treatment outcome
+#> 1  1            0             0                  1         1       0
+#> 2  1            0             1                  1         1       0
+#> 3  1            0             2                  1         0       1
+#> 4  2            0             0                  0         0       0
+#> 5  2            0             1                  0         1       0
 ```

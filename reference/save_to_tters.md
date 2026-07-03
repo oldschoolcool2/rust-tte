@@ -30,11 +30,19 @@ to populate it with a Rust-fast expansion.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-library(TrialEmulation)
-trial_sequence("ITT") |>
-  set_data(data = data_censored) |>
-  set_outcome_model(adjustment_terms = ~x2) |>
-  set_expansion_options(output = save_to_tters(), chunk_size = 0)
-} # }
+# The storage backend on its own:
+save_to_tters()
+#> Error: save_to_tters() requires the 'TrialEmulation' and 'data.table' packages. Install them with install.packages(c('TrialEmulation', 'data.table')).
+
+# Wired into a trial_sequence() pipeline (requires TrialEmulation):
+# \donttest{
+if (requireNamespace("TrialEmulation", quietly = TRUE)) {
+  library(TrialEmulation)
+  data("data_censored")
+  trial_sequence("ITT") |>
+    set_data(data = data_censored) |>
+    set_outcome_model(adjustment_terms = ~x2) |>
+    set_expansion_options(output = save_to_tters(), chunk_size = 0)
+}
+# }
 ```

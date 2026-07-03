@@ -95,10 +95,11 @@ to fit and expand in a single call.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-factors <- fit_trial_weights_df(
-  cohort, estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1")
-)
-} # }
+# Fitting needs covariates, so load the shipped `data_censored` cohort:
+if (requireNamespace("arrow", quietly = TRUE)) {
+  cohort <- as.data.frame(arrow::read_parquet(system.file(
+    "extdata", "weights", "input_data_censored.parquet", package = "tters")))
+  factors <- fit_trial_weights_df(cohort, estimand = "PP",
+    switch_numerator = "x2", switch_denominator = c("x2", "x1"))
+}
 ```

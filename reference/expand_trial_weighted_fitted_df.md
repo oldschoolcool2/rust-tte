@@ -94,13 +94,10 @@ to return only the factor table.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-weighted <- expand_trial_weighted_fitted_df(
-  cohort, estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1"),
-  censor_col = "censored",
-  censor_numerator = "x2", censor_denominator = c("x2", "x1"),
-  pool_censor = "none"
-)
-} # }
+if (requireNamespace("arrow", quietly = TRUE)) {
+  cohort <- as.data.frame(arrow::read_parquet(system.file(
+    "extdata", "weights", "input_data_censored.parquet", package = "tters")))
+  weighted <- expand_trial_weighted_fitted_df(cohort, estimand = "PP",
+    switch_numerator = "x2", switch_denominator = c("x2", "x1"))
+}
 ```

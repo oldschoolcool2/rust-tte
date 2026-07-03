@@ -146,16 +146,12 @@ factor table.</p></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Per-protocol switch + IPCW censoring, raw cohort to weighted frame in one call:</span></span></span>
-<span class="r-in"><span><span class="fu">expand_trial_weighted_fitted</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  <span class="st">"cohort.parquet"</span>, <span class="st">"weighted.parquet"</span>, estimand <span class="op">=</span> <span class="st">"PP"</span>,</span></span>
-<span class="r-in"><span>  switch_numerator <span class="op">=</span> <span class="st">"x2"</span>, switch_denominator <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"x2"</span>, <span class="st">"x1"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  censor_col <span class="op">=</span> <span class="st">"censored"</span>,</span></span>
-<span class="r-in"><span>  censor_numerator <span class="op">=</span> <span class="st">"x2"</span>, censor_denominator <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"x2"</span>, <span class="st">"x1"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  pool_censor <span class="op">=</span> <span class="st">"none"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Raw cohort straight to a weighted, expanded frame in one call:</span></span></span>
+<span class="r-in"><span><span class="va">input</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"weights"</span>, <span class="st">"input_data_censored.parquet"</span>,</span></span>
+<span class="r-in"><span>                     package <span class="op">=</span> <span class="st">"tters"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">expand_trial_weighted_fitted</span><span class="op">(</span><span class="va">input</span>, <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".parquet"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                             estimand <span class="op">=</span> <span class="st">"PP"</span>, switch_numerator <span class="op">=</span> <span class="st">"x2"</span>,</span></span>
+<span class="r-in"><span>                             switch_denominator <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"x2"</span>, <span class="st">"x1"</span><span class="op">)</span><span class="op">)</span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

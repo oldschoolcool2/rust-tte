@@ -60,9 +60,11 @@ expand_trial_weighted(
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-expand_trial_weighted(
-  "input.parquet", "factors.parquet", "weighted.parquet", estimand = "PP"
-)
-} # }
+input <- system.file("extdata", "weights", "input_data_censored.parquet",
+                     package = "tters")
+factors <- system.file("extdata", "weights",
+                       "input_data_censored_itt_weights.parquet",
+                       package = "tters")
+expand_trial_weighted(input, factors, tempfile(fileext = ".parquet"),
+                      estimand = "ITT")
 ```

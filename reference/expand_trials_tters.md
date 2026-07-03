@@ -61,15 +61,22 @@ comes from the Rust expansion, not the store.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-library(TrialEmulation)
-data("data_censored")
-trial <- trial_sequence("ITT") |>
-  set_data(data = data_censored) |>
-  set_outcome_model(adjustment_terms = ~x2) |>
-  set_expansion_options(output = save_to_tters(), chunk_size = 0)
-trial <- expand_trials_tters(trial)
-trial <- load_expanded_data(trial, seed = 1234, p_control = 0.5)
-trial <- fit_msm(trial)
-} # }
+# \donttest{
+if (requireNamespace("TrialEmulation", quietly = TRUE)) {
+  library(TrialEmulation)
+  data("data_censored")
+  trial <- trial_sequence("ITT") |>
+    set_data(data = data_censored) |>
+    set_censor_weight_model(
+      censor_event = "censored", numerator = ~x2, denominator = ~ x2 + x1,
+      pool_models = "numerator",
+      model_fitter = stats_glm_logit(save_path = tempfile())
+    ) |>
+    calculate_weights() |>
+    set_outcome_model(adjustment_terms = ~x2) |>
+    set_expansion_options(output = save_to_tters(), chunk_size = 0)
+  trial <- expand_trials_tters(trial)
+  load_expanded_data(trial, seed = 1234, p_control = 0.5)
+}
+# }
 ```

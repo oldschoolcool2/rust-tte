@@ -96,14 +96,10 @@ to write only the `(id, period, weight_factor)` factor table.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Per-protocol switch + IPCW censoring, raw cohort to weighted frame in one call:
-expand_trial_weighted_fitted(
-  "cohort.parquet", "weighted.parquet", estimand = "PP",
-  switch_numerator = "x2", switch_denominator = c("x2", "x1"),
-  censor_col = "censored",
-  censor_numerator = "x2", censor_denominator = c("x2", "x1"),
-  pool_censor = "none"
-)
-} # }
+# Raw cohort straight to a weighted, expanded frame in one call:
+input <- system.file("extdata", "weights", "input_data_censored.parquet",
+                     package = "tters")
+expand_trial_weighted_fitted(input, tempfile(fileext = ".parquet"),
+                             estimand = "PP", switch_numerator = "x2",
+                             switch_denominator = c("x2", "x1"))
 ```
