@@ -36,7 +36,7 @@ thiserror = { workspace = true }
 # (which never fits weights) stays lean and its lockfile untouched; the engine's
 # `--all-features` CI exercises the fit. default-features = false drops smartcore's
 # serde/datasets features (smaller tree, no extra I/O surface).
-smartcore = { version = "0.3.2", default-features = false, optional = true }
+smartcore = { version = "0.5.0", default-features = false, optional = true }
 
 [features]
 # Phase-6 weight FITTING (binds smartcore). Off by default so the R binding and a
