@@ -59,7 +59,7 @@ weights-fit = ["dep:smartcore"]
 #   * sha2       — recompute each committed fixture's SHA-256 to prove it still
 #     matches the manifest (differential integrity) with no external tool, so
 #     `make verify` stays pure-cargo and reproducible on any platform.
-criterion = "0.5"
+criterion = "0.8"
 serde_json = "1"
 sha2 = "0.10"
 
